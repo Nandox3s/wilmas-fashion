@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    volumes:
+      - prisma_data:/app/prisma
+      - uploads_data:/app/uploads
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+
+volumes:
+  prisma_data:
+    driver: local
+  uploads_data:
+    driver: local

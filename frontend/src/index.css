@@ -1,0 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+
+:root{
+	--vino: #5B0E2D;
+	--matte: #0F0F0F;
+	--gold: #D4AF37;
+}
+
+/* subtle glass */
+.glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(6px); }
+.card { box-shadow: 0 8px 24px rgba(15,15,15,0.06); border-radius: 12px; }
+
+/* utility for premium buttons */
+.btn-primary { background: linear-gradient(90deg,var(--vino),#7a143b); color: white; }
+
