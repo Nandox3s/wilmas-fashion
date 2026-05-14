@@ -63,6 +63,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 // Routes
+app.get('/', (req, res) => res.json({ message: 'Wilmas Fashion API', status: 'running', timestamp: new Date().toISOString() }));
 app.get('/api/ping', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // Auth
