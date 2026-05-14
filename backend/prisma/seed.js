@@ -4,9 +4,11 @@ import bcryptjs from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.sale.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.user.deleteMany();
+  const productCount = await prisma.product.count();
+  if (productCount > 0) {
+    console.log('✅ Seed skipped: database already has products');
+    return;
+  }
 
   const adminHash = await bcryptjs.hash('admin123', 10);
   await prisma.user.create({
