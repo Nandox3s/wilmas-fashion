@@ -1,14 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import bcryptjs from 'bcryptjs';
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const productCount = await prisma.product.count();
-  if (productCount > 0) {
-    console.log('✅ Seed skipped: database already has products');
-    return;
-  }
+  await prisma.sale.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.user.deleteMany();
 
   const adminHash = await bcryptjs.hash('admin123', 10);
   await prisma.user.create({
@@ -16,12 +17,12 @@ async function main() {
   });
 
   const products = [
-    { name: 'Camiseta Negra', sku: 'CAM001', category: 'Hombre', size: 'M', color: 'Negro', price: 29.99, stock: 50, onOffer: true, discount: 10 },
-    { name: 'Jeans Azul', sku: 'JEA001', category: 'Hombre', size: 'L', color: 'Azul', price: 59.99, stock: 30 },
-    { name: 'Vestido Rojo', sku: 'VES001', category: 'Mujer', size: 'S', color: 'Rojo', price: 79.99, stock: 20, onOffer: true, discount: 15 },
-    { name: 'Falda Negra', sku: 'FAL001', category: 'Mujer', size: 'M', color: 'Negro', price: 49.99, stock: 25 },
-    { name: 'Cinturón Cuero', sku: 'CIN001', category: 'Accesorios', size: 'Único', color: 'Café', price: 39.99, stock: 40 },
-    { name: 'Sombrero', sku: 'SOM001', category: 'Accesorios', size: 'Único', color: 'Negro', price: 34.99, stock: 15, onOffer: true, discount: 20 }
+    { name: 'Camiseta Negra', sku: 'CAM001', brand: 'Wilmas', category: 'Hombre', sizes: JSON.stringify(['M']), color: 'Negro', price: 29.99, stock: 50, onOffer: true, discount: 10 },
+    { name: 'Jeans Azul', sku: 'JEA001', brand: 'Wilmas', category: 'Hombre', sizes: JSON.stringify(['L']), color: 'Azul', price: 59.99, stock: 30 },
+    { name: 'Vestido Rojo', sku: 'VES001', brand: 'Wilmas', category: 'Mujer', sizes: JSON.stringify(['S']), color: 'Rojo', price: 79.99, stock: 20, onOffer: true, discount: 15 },
+    { name: 'Falda Negra', sku: 'FAL001', brand: 'Wilmas', category: 'Mujer', sizes: JSON.stringify(['M']), color: 'Negro', price: 49.99, stock: 25 },
+    { name: 'Cinturón Cuero', sku: 'CIN001', brand: 'Wilmas', category: 'Accesorios', sizes: JSON.stringify(['Único']), color: 'Café', price: 39.99, stock: 40 },
+    { name: 'Sombrero', sku: 'SOM001', brand: 'Wilmas', category: 'Accesorios', sizes: JSON.stringify(['Único']), color: 'Negro', price: 34.99, stock: 15, onOffer: true, discount: 20 }
   ];
 
   for (const product of products) {

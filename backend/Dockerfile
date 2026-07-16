@@ -15,9 +15,8 @@ COPY src ./src
 
 ENV NODE_ENV=production
 ENV DATABASE_URL="file:./dev.db"
-ENV JWT_SECRET="wilmas_dev_secret_2026"
 ENV PORT=4000
 
 EXPOSE 4000
 
-CMD sh -c "npx prisma db push --skip-generate && node prisma/seed.js && node src/index.js"
+CMD sh -c "npx prisma db push --skip-generate && node src/index.js"

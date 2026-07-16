@@ -1,22 +1,18 @@
-import React, { useEffect, useState } from 'react'
-import Navbar from '../components/Navbar'
+import React from 'react'
 import Hero from '../components/Hero'
 import FeaturedProducts from '../components/FeaturedProducts'
 import Promotions from '../components/Promotions'
-import Footer from '../components/Footer'
 
 export default function Home(){
   return (
-    <div className="min-h-screen bg-soft-gray font-sans">
-      <Navbar />
+    <div className="min-h-screen bg-[#f8f3ef] font-sans">
       <main>
         <Hero />
-        <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:py-14">
           <FeaturedProducts />
           <Promotions />
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

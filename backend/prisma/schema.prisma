@@ -18,19 +18,20 @@ model User {
 }
 
 model Product {
-  id       Int     @id @default(autoincrement())
-  name     String
-  sku      String  @unique
-  category String
-  size     String
-  color    String
-  price    Float
-  discount Float   @default(0)
-  onOffer  Boolean @default(false)
-  stock    Int
-  image    String?
+  id        Int     @id @default(autoincrement())
+  name      String
+  sku       String  @unique
+  brand     String
+  category  String
+  sizes     String  @default("[]") // JSON array: ["S","M","L","XL"]
+  color     String
+  price     Float
+  discount  Float   @default(0)
+  onOffer   Boolean @default(false)
+  stock     Int
+  image     String?
   createdAt DateTime @default(now())
-  sales    Sale[]
+  sales     Sale[]
 }
 
 model Sale {
