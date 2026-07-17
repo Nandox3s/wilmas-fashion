@@ -27,6 +27,7 @@ function hasValidSession() {
       window.localStorage.removeItem('token')
       window.localStorage.removeItem('role')
       window.localStorage.removeItem('wf_user')
+      window.localStorage.removeItem('user')
       return false
     }
   } catch {
@@ -35,10 +36,10 @@ function hasValidSession() {
 
   return true
 }
-function PrivateRoute({ children, adminOnly = false }) {
+function PrivateRoute({ children, allowedRoles }) {
   const location = useLocation()
   if (!hasValidSession()) return <Navigate to="/login" state={{ from: location }} replace />
-  if (adminOnly && window.localStorage.getItem('role') !== 'ADMIN') return <Navigate to="/dashboard" replace />
+  if (allowedRoles && !allowedRoles.includes(window.localStorage.getItem('role'))) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -84,8 +85,8 @@ export default function App() {
 
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
-          <Route path="dashboard/*" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="admin" element={<PrivateRoute adminOnly><Admin /></PrivateRoute>} />
+          <Route path="dashboard/*" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><Dashboard /></PrivateRoute>} />
+          <Route path="admin" element={<PrivateRoute allowedRoles={['ADMIN']}><Admin /></PrivateRoute>} />
         </Routes>
       </Suspense>
     </BrowserRouter>

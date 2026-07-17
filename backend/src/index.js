@@ -20,13 +20,21 @@ if (!JWT_SECRET) {
 }
 
 // Middleware
-app.use(cors());
+const allowedOrigins = ['http://localhost:5173', 'https://wilmas-fashion.vercel.app', ...(process.env.CORS_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)];
+app.use(cors({ origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)) }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/uploads', express.static(join(__dirname, '../uploads')));
 
 // Multer setup
-const upload = multer({ dest: join(__dirname, '../uploads') });
+const upload = multer({
+  dest: join(__dirname, '../uploads'),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, callback) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    callback(allowed.includes(file.mimetype) ? null : httpError(400, 'Invalid image type'), allowed.includes(file.mimetype));
+  }
+});
 
 // Validation helpers
 const validateEmail = (email) => typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -49,6 +57,7 @@ const normalizeSizes = (value) => {
 
   return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))];
 };
+const serializeProduct = (product) => product ? { ...product, sizes: normalizeSizes(product.sizes) } : product;
 
 const parseBoolean = (value) => value === true || value === 'true';
 const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -74,12 +83,11 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-const requireAdmin = (req, res, next) => {
-  if (req.user?.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
+const authorizeRoles = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user?.role)) return res.status(403).json({ error: 'Forbidden' });
   next();
 };
+const requireAdmin = authorizeRoles('ADMIN');
 
 // Routes
 app.get('/', (req, res) => res.json({ message: 'Wilmas Fashion API', status: 'running', timestamp: new Date().toISOString() }));
@@ -96,12 +104,12 @@ app.post('/api/auth/login', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Password required' });
   }
   
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
   if (!user || !(await bcryptjs.compare(password, user.password))) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
   
-  const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ 
     token, 
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
@@ -128,9 +136,9 @@ app.post('/api/auth/register', asyncHandler(async (req, res) => {
   }
   
   const hash = await bcryptjs.hash(password, 10);
-  const user = await prisma.user.create({ data: { name, email, password: hash } });
+  const user = await prisma.user.create({ data: { name: name.trim(), email: email.trim().toLowerCase(), password: hash, role: 'USER' } });
   
-  const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({ 
     token, 
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
@@ -172,7 +180,7 @@ app.get('/api/products', asyncHandler(async (req, res) => {
   ]);
   
   res.json({
-    items: products,
+    items: products.map(serializeProduct),
     total,
     page: pageNum,
     limit: limitNum,
@@ -187,10 +195,10 @@ app.get('/api/products/:id', asyncHandler(async (req, res) => {
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) return res.status(404).json({ error: 'Product not found' });
   
-  res.json(product);
+  res.json(serializeProduct(product));
 }));
 
-app.post('/api/products', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+app.post('/api/products', requireAuth, authorizeRoles('USER', 'ADMIN'), asyncHandler(async (req, res) => {
   const { name, sku, brand, category, sizes, size, color, price, discount, onOffer, stock, image } = req.body;
   const normalizedSizes = normalizeSizes(sizes !== undefined ? sizes : size);
   const parsedPrice = Number(price);
@@ -216,7 +224,7 @@ app.post('/api/products', requireAuth, requireAdmin, asyncHandler(async (req, re
   const product = await prisma.product.create({
     data: {
       name: name.trim(),
-      sku: sku.trim(),
+      sku: sku.trim().toUpperCase(),
       brand: brand.trim(),
       category: category.trim(),
       sizes: JSON.stringify(normalizedSizes),
@@ -229,10 +237,10 @@ app.post('/api/products', requireAuth, requireAdmin, asyncHandler(async (req, re
     }
   });
   
-  res.status(201).json(product);
+  res.status(201).json(serializeProduct(product));
 }));
 
-app.put('/api/products/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+app.put('/api/products/:id', requireAuth, authorizeRoles('USER', 'ADMIN'), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid product ID' });
   
@@ -255,7 +263,7 @@ app.put('/api/products/:id', requireAuth, requireAdmin, asyncHandler(async (req,
   
   const data = {};
   if (name !== undefined) data.name = name.trim();
-  if (sku !== undefined) data.sku = sku.trim();
+  if (sku !== undefined) data.sku = sku.trim().toUpperCase();
   if (brand !== undefined) data.brand = brand.trim();
   if (category !== undefined) data.category = category.trim();
   if (sizes !== undefined || size !== undefined) {
@@ -272,7 +280,27 @@ app.put('/api/products/:id', requireAuth, requireAdmin, asyncHandler(async (req,
   if (req.file) data.image = req.file.filename;
   
   const product = await prisma.product.update({ where: { id }, data });
-  res.json(product);
+  res.json(serializeProduct(product));
+}));
+
+app.patch('/api/products/:id/price', requireAuth, authorizeRoles('USER', 'ADMIN'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  const price = Number(req.body.price);
+  const discount = req.body.discount === undefined ? undefined : Number(req.body.discount);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid product ID' });
+  if (!Number.isFinite(price) || price <= 0) return res.status(400).json({ error: 'Valid price is required' });
+  if (discount !== undefined && (!Number.isFinite(discount) || discount < 0 || discount > 100)) return res.status(400).json({ error: 'Discount must be between 0 and 100' });
+  if (!await prisma.product.findUnique({ where: { id } })) return res.status(404).json({ error: 'Product not found' });
+  res.json(serializeProduct(await prisma.product.update({ where: { id }, data: { price, ...(discount === undefined ? {} : { discount }) } })));
+}));
+
+app.patch('/api/products/:id/stock', requireAuth, authorizeRoles('USER', 'ADMIN'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  const stock = Number(req.body.stock);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid product ID' });
+  if (!Number.isInteger(stock) || stock < 0) return res.status(400).json({ error: 'Valid stock is required' });
+  if (!await prisma.product.findUnique({ where: { id } })) return res.status(404).json({ error: 'Product not found' });
+  res.json(serializeProduct(await prisma.product.update({ where: { id }, data: { stock } })));
 }));
 
 app.delete('/api/products/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
@@ -351,9 +379,10 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+app.patch('/api/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { role } = req.body;
+    if (!['USER', 'ADMIN'].includes(role)) return res.status(400).json({ error: 'Role must be USER or ADMIN' });
     const user = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: { role }, select: { id: true, name: true, email: true, role: true } });
     res.json(user);
   } catch (e) {
@@ -371,7 +400,7 @@ app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Upload
-app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
+app.post('/api/upload', requireAuth, authorizeRoles('USER', 'ADMIN'), upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   res.json({ filename: req.file.filename, url: `/uploads/${req.file.filename}` });
 });
@@ -431,6 +460,9 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
+  if (err.code === 'P2002') return res.status(409).json({ error: 'A unique value is already registered' });
+  if (err.code === 'P2025') return res.status(404).json({ error: 'Resource not found' });
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'Image must not exceed 5 MB' });
   const status = Number.isInteger(err.status) ? err.status : 500;
   if (status >= 500) console.error(err);
   res.status(status).json({ error: status >= 500 ? 'Internal server error' : err.message });

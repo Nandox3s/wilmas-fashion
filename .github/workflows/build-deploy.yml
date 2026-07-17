@@ -31,6 +31,20 @@ jobs:
         working-directory: backend
         run: npx prisma generate
 
+      - name: Validate Prisma schema
+        working-directory: backend
+        env:
+          DATABASE_URL: file:./ci.db
+        run: npx prisma validate
+
+      - name: Check backend syntax
+        working-directory: backend
+        run: node --check src/index.js
+
+      - name: Test backend
+        working-directory: backend
+        run: npm test
+
       - name: Set up Node.js for frontend
         uses: actions/setup-node@v4
         with:
@@ -45,3 +59,7 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+      - name: Test frontend
+        working-directory: frontend
+        run: npm test

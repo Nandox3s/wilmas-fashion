@@ -42,7 +42,7 @@ export default function Dashboard() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const role = localStorage.getItem('role') || 'CUSTOMER'
+  const role = localStorage.getItem('role') || 'USER'
 
   useEffect(() => {
     loadDashboard()

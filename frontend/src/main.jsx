@@ -11,6 +11,11 @@ axios.defaults.baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:4000
 axios.interceptors.response.use(
   res => res,
   err => {
+    if (err.response?.status === 401 && localStorage.getItem('token')) {
+      ;['token', 'role', 'wf_user', 'user'].forEach((key) => localStorage.removeItem(key))
+      toast.error('Tu sesión expiró. Inicia sesión nuevamente.')
+      if (window.location.pathname !== '/login') window.location.assign('/login')
+    }
     if (err.config?.showGlobalErrorToast) {
       const msg = err.response?.data?.error || err.message || 'Error de red'
       toast.error(msg)
