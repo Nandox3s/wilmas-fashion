@@ -1,34 +1,30 @@
 # Wilmas Fashion
 
-Prototipo académico de tienda boutique. Usa React 18, Vite 5 y Tailwind CSS en `frontend/`; Express 4, Prisma 5, JWT y SQLite en `backend/`. El checkout es exclusivamente demostrativo: no procesa dinero ni almacena tarjetas.
+Proyecto académico de tienda boutique: React 18/Vite/Tailwind en `frontend/`; Express 4/Prisma/PostgreSQL/JWT en `backend/`. Conserva catálogo local como fallback y carrito `wf_cart`. Pagos y facturas usan proveedores mock por defecto; no procesan dinero ni emiten comprobantes tributarios.
 
 ## Desarrollo local
 
-1. En `backend/`, crea `.env` con `DATABASE_URL=file:./dev.db`, `JWT_SECRET` y opcionalmente `PORT=4000` y `CORS_ORIGINS` (lista separada por comas).
-2. Ejecuta `npm install`, `npx prisma generate`, `npx prisma db push` y `npm start`.
-3. En `frontend/`, configura opcionalmente `VITE_API_BASE=http://localhost:4000`, ejecuta `npm install` y `npm run dev`.
+1. Inicia Docker Desktop y ejecuta `docker compose -f docker-compose.postgres.yml up -d`.
+2. Copia `backend/.env.example` a `backend/.env`, usa secretos locales y confirma `DATABASE_URL` PostgreSQL.
+3. En `backend/`: `npm ci`, `npx prisma generate`, `npx prisma migrate deploy`, `npm test`, `npm start`.
+4. En `frontend/`: configura `VITE_API_BASE=http://localhost:4000` y `VITE_CHECKOUT_MODE=demo`; ejecuta `npm ci`, `npm test`, `npm run dev`.
 
-No ejecutes `npm run seed` sin confirmar que deseas reemplazar datos. Nunca publiques `.env`, `dev.db`, `node_modules` ni credenciales.
+No ejecutar seed, `db push` productivo ni importar a RDS sin autorización/respaldo. Nunca publicar `.env`, bases, exports, tfstate, certificados o credenciales.
 
-## Permisos
+## Permisos y API
 
-- Visitante: catálogo, detalle, carrito y checkout demostrativo.
-- `USER`: además crea y actualiza productos, precio, descuento, stock e imágenes.
-- `ADMIN` (Administrador o Jefe en la interfaz): además elimina productos, consulta ventas/analíticas y administra roles.
+- Visitante: catálogo, detalle, carrito, registro y login.
+- USER: productos (sin eliminar), uploads, pedidos propios y facturas propias.
+- ADMIN: eliminar productos, usuarios/roles, todos los pedidos, pagos, invoices y analítica.
 
-El registro público siempre asigna `USER`; solo `ADMIN` puede cambiar un rol a `USER` o `ADMIN`. La API valida el usuario y rol del JWT en cada operación privada.
-
-## API
-
-- Públicos: `GET /api/ping`, `GET /api/products`, `GET /api/products/:id`.
-- `USER`/`ADMIN`: `POST /api/products`, `PUT /api/products/:id`, `PATCH /api/products/:id/price`, `PATCH /api/products/:id/stock`, `POST /api/upload`.
-- `ADMIN`: `DELETE /api/products/:id`, `GET /api/sales`, `GET /api/analytics/dashboard`, `GET /api/users`, `PATCH /api/users/:id/role`.
-
-El catálogo usa la API como fuente prioritaria por SKU y conserva `frontend/src/data/products.js` como respaldo si la API no responde.
+El registro fuerza USER y el backend vuelve a consultar usuario/rol en cada petición. Rutas nuevas: `/api/orders`, `/api/payments`, `/api/invoices`, `/api/uploads`; se mantienen productos, usuarios y ventas históricas. `/api/ping` verifica PostgreSQL.
 
 ## Verificación
 
-- Backend: `npx prisma validate`, `node --check src/index.js`, `npm test`.
-- Frontend: `npm test`, `npm run build`.
+```text
+backend: npm ci; npx prisma generate; npx prisma validate; npm test; node --check src/app.js; node --check src/server.js
+frontend: npm ci; npm test; npm run build
+terraform: terraform fmt -check -recursive; terraform init -backend=false; terraform validate
+```
 
-Consulta [DEPLOYMENT.md](DEPLOYMENT.md) para Vercel y Render.
+La guía principal está en [DEPLOYMENT.md](DEPLOYMENT.md); auditoría, rollback, seguridad y costos están en `docs/`.

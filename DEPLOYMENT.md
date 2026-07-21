@@ -1,29 +1,26 @@
 # Despliegue de Wilmas Fashion
 
-## Backend en Render
+## Estado
 
-El backend usa SQLite. Configure `DATABASE_URL`, `JWT_SECRET`, `PORT` y opcionalmente `CORS_ORIGINS`. `JWT_SECRET` es obligatoria y el proceso no inicia si falta.
+Render y Vercel siguen activos como rollback. AWS está preparado como código pero no aplicado. El plan dev reducido excluye RDS/Elastic Beanstalk porque exceden el presupuesto mensual de USD 5. No desplegar pagos/invoices reales: mock es el default.
 
-SQLite escribe en un archivo local; el sistema de archivos de Render puede ser efímero. Para conservar datos entre despliegues se requiere un disco persistente y una ruta `DATABASE_URL` dentro de ese volumen. No ejecute el seed en producción: elimina y reemplaza datos.
+## Backend
 
-Comandos recomendados:
+Node 20 arranca con `npm start`; `app.js` no abre puerto y `server.js` maneja SIGINT/SIGTERM. Ejecutar `npm run migrate:deploy` una sola vez como paso separado. Variables provienen de Secrets Manager/entorno; no ejecutar `db push` ni seed. Validar `/api/ping` y logs antes de tráfico.
 
-```text
-npm install
-npx prisma generate
-npx prisma db push
-npm start
-```
+Elastic Beanstalk está parametrizado en Terraform y deshabilitado en dev. SingleInstance reduce costo, pero HTTPS productivo requiere una decisión adicional documentada en `docs/backend-deployment.md` y `docs/domain-and-https.md`.
 
-## Frontend en Vercel
+## Frontend
 
-Configure `VITE_API_BASE=https://wilmas-fashion.onrender.com`. La API admite por defecto `http://localhost:5173` y `https://wilmas-fashion.vercel.app`; agregue otros dominios en `CORS_ORIGINS`, separados por comas.
+`amplify.yml` prueba y compila `frontend/dist`. Conectar manualmente `feature/aws-migration`, configurar `VITE_API_BASE`/`VITE_CHECKOUT_MODE` y rewrite SPA. No desconectar Vercel durante estabilización.
 
-El rewrite de SPA está definido en `frontend/vercel.json`.
+## Secuencia segura
 
-## Seguridad y alcance
+1. Leer `docs/backup-and-rollback.md` y crear/verificar respaldo.
+2. Validar Docker/PostgreSQL y ejecutar pruebas completas.
+3. Revisar `terraform plan`, costo y cero destrucciones.
+4. Obtener aprobación explícita antes de `terraform apply`.
+5. Obtener segunda aprobación antes de migración productiva/DNS.
+6. Seguir `docs/production-cutover.md` y mantener Render/Vercel.
 
-- No publique `.env`, `dev.db`, secretos ni credenciales reales.
-- Use HTTPS y una clave JWT larga y aleatoria.
-- El checkout es una simulación académica; no integra pagos ni guarda tarjetas.
-- Si GitHub Actions no inicia por facturación, ese bloqueo no indica un fallo del código. Revise por separado los logs de los pasos que sí llegaron a ejecutarse.
+Si GitHub Actions no inicia por facturación, distinguir job no iniciado de código fallido. No usar access keys permanentes; despliegue futuro usará GitHub OIDC y environment `production` con aprobación.
