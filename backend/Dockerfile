@@ -1,22 +1,18 @@
-FROM node:18-alpine
-
+FROM node:20-alpine AS dependencies
 RUN apk add --no-cache openssl
-
 WORKDIR /app
-
 COPY package*.json ./
 COPY prisma ./prisma
+RUN npm ci --omit=dev
 
-RUN npm install
-
-RUN npx prisma generate
-
-COPY src ./src
-
+FROM node:20-alpine
+RUN apk add --no-cache openssl && addgroup -S nodeapp && adduser -S nodeapp -G nodeapp
+WORKDIR /app
 ENV NODE_ENV=production
-ENV DATABASE_URL="file:./dev.db"
-ENV PORT=4000
-
+COPY --from=dependencies --chown=nodeapp:nodeapp /app/node_modules ./node_modules
+COPY --chown=nodeapp:nodeapp package*.json ./
+COPY --chown=nodeapp:nodeapp prisma ./prisma
+COPY --chown=nodeapp:nodeapp src ./src
+USER nodeapp
 EXPOSE 4000
-
-CMD sh -c "npx prisma db push --skip-generate && node src/index.js"
+CMD ["node", "src/server.js"]
