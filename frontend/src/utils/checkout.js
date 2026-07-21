@@ -46,6 +46,7 @@ export function validateCheckout(form) {
     ['address', 'Escribe una dirección válida.', 5],
     ['city', 'Escribe tu ciudad.', 2],
     ['province', 'Escribe tu provincia o departamento.', 2],
+    ['identificationNumber', 'Escribe tu identificación.', 5],
   ]
 
   requiredText.forEach(([field, message, minLength]) => {

@@ -76,6 +76,7 @@ export default function Navbar() {
     window.localStorage.removeItem('token')
     window.localStorage.removeItem('role')
     window.localStorage.removeItem('wf_user')
+    window.localStorage.removeItem('user')
     setMenuOpen(false)
     navigate('/login', { replace: true })
   }

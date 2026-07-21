@@ -51,6 +51,7 @@ export default function CheckoutForm({ form, errors, touched, onChange, delivery
           <Field id="lastName" label="Apellido" value={form.lastName} onChange={(event) => update('lastName', event.target.value)} onBlur={() => update('lastName', form.lastName, true)} error={visibleError('lastName')} autoComplete="family-name" />
           <Field id="email" type="email" label="Correo electrónico" value={form.email} onChange={(event) => update('email', event.target.value)} onBlur={() => update('email', form.email, true)} error={visibleError('email')} autoComplete="email" inputMode="email" />
           <Field id="phone" type="tel" label="Teléfono" value={form.phone} onChange={(event) => update('phone', event.target.value)} onBlur={() => update('phone', form.phone, true)} error={visibleError('phone')} autoComplete="tel" inputMode="tel" placeholder="Ej. 300 123 4567" />
+          <Field id="identificationNumber" label="Identificación" value={form.identificationNumber} onChange={(event) => update('identificationNumber', event.target.value)} onBlur={() => update('identificationNumber', form.identificationNumber, true)} error={visibleError('identificationNumber')} inputMode="numeric" placeholder="Cédula o identificación" />
         </div>
       </section>
 

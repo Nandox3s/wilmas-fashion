@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import StoreLayout from './components/StoreLayout'
+import { sessionPayload } from './services/apiClient'
 
 const Home = lazy(() => import('./pages/Home'))
 const Catalog = lazy(() => import('./pages/Catalog'))
@@ -12,34 +13,17 @@ const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Admin = lazy(() => import('./pages/Admin'))
+const MyOrders = lazy(() => import('./pages/MyOrders'))
+const OrderDetail = lazy(() => import('./pages/OrderDetail'))
+const PaymentResult = lazy(() => import('./pages/PaymentResult'))
 
 function hasValidSession() {
-  const token = window.localStorage.getItem('token')
-  if (!token) return false
-
-  try {
-    const encodedPayload = token.split('.')[1]
-    if (!encodedPayload) return false
-    const normalizedPayload = encodedPayload.replace(/-/g, '+').replace(/_/g, '/')
-    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=')
-    const payload = JSON.parse(window.atob(paddedPayload))
-    if (payload.exp && payload.exp * 1000 <= Date.now()) {
-      window.localStorage.removeItem('token')
-      window.localStorage.removeItem('role')
-      window.localStorage.removeItem('wf_user')
-      window.localStorage.removeItem('user')
-      return false
-    }
-  } catch {
-    return false
-  }
-
-  return true
+  return Boolean(sessionPayload())
 }
 function PrivateRoute({ children, allowedRoles }) {
   const location = useLocation()
   if (!hasValidSession()) return <Navigate to="/login" state={{ from: location }} replace />
-  if (allowedRoles && !allowedRoles.includes(window.localStorage.getItem('role'))) return <Navigate to="/dashboard" replace />
+  if (allowedRoles && !allowedRoles.includes(sessionPayload()?.role)) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -80,6 +64,9 @@ export default function App() {
             <Route path="product/:id" element={<Product />} />
             <Route path="cart" element={<Cart />} />
             <Route path="checkout" element={<Checkout />} />
+            <Route path="payment-result" element={<PaymentResult />} />
+            <Route path="orders" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><MyOrders /></PrivateRoute>} />
+            <Route path="orders/:reference" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><OrderDetail /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Route>
 
