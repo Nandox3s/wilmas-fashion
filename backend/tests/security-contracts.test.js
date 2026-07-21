@@ -7,7 +7,6 @@ import request from 'supertest'
 
 process.env.NODE_ENV = 'test'
 process.env.JWT_SECRET = 'test-only-secret-that-is-at-least-32-characters'
-process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
 const { createApp } = await import('../src/app.js')
 
 function repository() {

@@ -6,9 +6,10 @@ module "networking" {
 }
 
 module "storage" {
-  source  = "./modules/storage"
-  enabled = var.enable_storage
-  name    = "wilmas-fashion-${var.environment}-${data.aws_caller_identity.current.account_id}"
+  source           = "./modules/storage"
+  enabled          = var.enable_storage
+  name             = "wilmas-fashion-${var.environment}-${data.aws_caller_identity.current.account_id}"
+  frontend_origins = var.frontend_origins
 }
 
 module "sqs" {
@@ -30,7 +31,8 @@ module "rds" {
 
 module "iam" {
   source              = "./modules/iam"
-  enabled             = var.enable_storage && var.enable_queues
+  backend_enabled     = var.enable_backend
+  worker_enabled      = var.enable_invoice_worker
   name                = "wilmas-${var.environment}"
   products_bucket_arn = module.storage.products_bucket_arn
   invoices_bucket_arn = module.storage.invoices_bucket_arn
@@ -51,7 +53,7 @@ module "backend" {
 
 module "invoice_worker" {
   source    = "./modules/invoice-worker"
-  enabled   = false
+  enabled   = var.enable_invoice_worker
   name      = "wilmas-invoice-worker-${var.environment}"
   role_arn  = module.iam.worker_role_arn
   queue_arn = module.sqs.queue_arn
@@ -59,9 +61,10 @@ module "invoice_worker" {
 
 module "monitoring" {
   source     = "./modules/monitoring"
+  enabled    = var.enable_monitoring
   name       = "wilmas-${var.environment}"
-  queue_name = module.sqs.queue_name
-  dlq_name   = module.sqs.dlq_name
+  queue_name = var.enable_monitoring ? module.sqs.queue_name : null
+  dlq_name   = var.enable_monitoring ? module.sqs.dlq_name : null
 }
 
 module "ses" {

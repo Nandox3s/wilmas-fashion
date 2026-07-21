@@ -1,5 +1,6 @@
 variable "enabled" { type = bool }
 variable "name" { type = string }
+variable "frontend_origins" { type = list(string) }
 locals { buckets = var.enabled ? { products = "${var.name}-products", invoices = "${var.name}-invoices" } : {} }
 resource "aws_s3_bucket" "this" {
   for_each = local.buckets
@@ -46,7 +47,7 @@ resource "aws_s3_bucket_cors_configuration" "products" {
   cors_rule {
     allowed_headers = ["content-type"]
     allowed_methods = ["PUT"]
-    allowed_origins = ["https://<DOMAIN>", "http://localhost:5173"]
+    allowed_origins = var.frontend_origins
     expose_headers  = ["ETag"]
     max_age_seconds = 300
   }

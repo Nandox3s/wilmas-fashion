@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
       POSTGRES_DB: wilmas_fashion
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - wilmas_postgres_data:/var/lib/postgresql/data
       - ./backend/scripts/postgres-init:/docker-entrypoint-initdb.d:ro

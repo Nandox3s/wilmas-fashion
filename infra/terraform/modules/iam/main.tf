@@ -1,5 +1,6 @@
 variable "name" { type = string }
-variable "enabled" { type = bool }
+variable "backend_enabled" { type = bool }
+variable "worker_enabled" { type = bool }
 variable "products_bucket_arn" {
   type     = string
   nullable = true
@@ -38,17 +39,17 @@ data "aws_iam_policy_document" "assume_lambda" {
   }
 }
 resource "aws_iam_role" "backend" {
-  count              = var.enabled ? 1 : 0
+  count              = var.backend_enabled ? 1 : 0
   name               = "${var.name}-backend"
   assume_role_policy = data.aws_iam_policy_document.assume_ec2.json
 }
 resource "aws_iam_instance_profile" "backend" {
-  count = var.enabled ? 1 : 0
+  count = var.backend_enabled ? 1 : 0
   name  = "${var.name}-backend"
   role  = aws_iam_role.backend[0].name
 }
 data "aws_iam_policy_document" "backend" {
-  count = var.enabled ? 1 : 0
+  count = var.backend_enabled ? 1 : 0
   statement {
     sid       = "ProductObjects"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
@@ -79,18 +80,18 @@ data "aws_iam_policy_document" "backend" {
   }
 }
 resource "aws_iam_role_policy" "backend" {
-  count  = var.enabled ? 1 : 0
+  count  = var.backend_enabled ? 1 : 0
   name   = "${var.name}-backend"
   role   = aws_iam_role.backend[0].id
   policy = data.aws_iam_policy_document.backend[0].json
 }
 resource "aws_iam_role" "worker" {
-  count              = var.enabled ? 1 : 0
+  count              = var.worker_enabled ? 1 : 0
   name               = "${var.name}-invoice-worker"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda.json
 }
 data "aws_iam_policy_document" "worker" {
-  count = var.enabled ? 1 : 0
+  count = var.worker_enabled ? 1 : 0
   statement {
     sid       = "QueueConsume"
     actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility", "sqs:GetQueueAttributes"]
@@ -116,7 +117,7 @@ data "aws_iam_policy_document" "worker" {
   }
 }
 resource "aws_iam_role_policy" "worker" {
-  count  = var.enabled ? 1 : 0
+  count  = var.worker_enabled ? 1 : 0
   name   = "${var.name}-worker"
   role   = aws_iam_role.worker[0].id
   policy = data.aws_iam_policy_document.worker[0].json

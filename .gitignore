@@ -12,6 +12,7 @@ coverage/
 backend/backups/*
 !backend/backups/.gitkeep
 backend/migration-exports/
+backend/uploads/
 *.backup.db
 *.sqlite-backup
 *.pem

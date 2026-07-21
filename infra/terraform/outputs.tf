@@ -4,5 +4,4 @@ output "products_bucket" { value = module.storage.products_bucket_name }
 output "invoices_bucket" { value = module.storage.invoices_bucket_name }
 output "invoice_queue_url" { value = module.sqs.queue_url }
 output "database_endpoint" { value = module.rds.endpoint }
-output "database_secret_arn" { value = module.rds.master_user_secret_arn }
 output "backend_url" { value = module.backend.url }
