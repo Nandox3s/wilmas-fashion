@@ -30,6 +30,7 @@ module "rds" {
 
 module "iam" {
   source              = "./modules/iam"
+  enabled             = var.enable_storage && var.enable_queues
   name                = "wilmas-${var.environment}"
   products_bucket_arn = module.storage.products_bucket_arn
   invoices_bucket_arn = module.storage.invoices_bucket_arn
