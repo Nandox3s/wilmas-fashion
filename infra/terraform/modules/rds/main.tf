@@ -11,6 +11,7 @@ variable "database_username" {
   type      = string
   sensitive = true
 }
+variable "deletion_protection" { type = bool }
 resource "aws_db_subnet_group" "this" {
   count      = var.enabled ? 1 : 0
   name       = var.name
@@ -53,7 +54,7 @@ resource "aws_db_instance" "this" {
   publicly_accessible         = false
   multi_az                    = false
   backup_retention_period     = var.environment == "prod" ? 7 : 1
-  deletion_protection         = var.environment == "prod"
+  deletion_protection         = var.deletion_protection
   skip_final_snapshot         = var.environment != "prod"
   final_snapshot_identifier   = var.environment == "prod" ? "${var.name}-final" : null
   auto_minor_version_upgrade  = true

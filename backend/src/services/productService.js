@@ -23,7 +23,12 @@ function dataFrom(input, partial = false) {
 }
 
 export class ProductService {
-  constructor(prisma) { this.prisma = prisma }
+  constructor(prisma, storageService = null) { this.prisma = prisma; this.storageService = storageService }
+  async serialize(product) {
+    const output = serializeProduct(product)
+    if (this.storageService && String(product.image || '').startsWith('products/')) output.image = await this.storageService.signedProduct(product.image)
+    return output
+  }
   async list(query) {
     const page = Math.max(1, Number.parseInt(query.page) || 1); const limit = Math.min(100, Math.max(1, Number.parseInt(query.limit) || 12))
     const where = {}
@@ -33,10 +38,10 @@ export class ProductService {
     if (query.minPrice || query.maxPrice) where.price = { ...(query.minPrice ? { gte: money(query.minPrice, 'minPrice') } : {}), ...(query.maxPrice ? { lte: money(query.maxPrice, 'maxPrice') } : {}) }
     const [items, total] = await Promise.all([this.prisma.product.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }), this.prisma.product.count({ where })])
     const filtered = query.size ? items.filter((item) => normalizeSizes(item.sizes).includes(String(query.size))) : items
-    return { items: filtered.map(serializeProduct), total: query.size ? filtered.length : total, page, limit, pages: Math.ceil((query.size ? filtered.length : total) / limit) }
+    return { items: await Promise.all(filtered.map((item) => this.serialize(item))), total: query.size ? filtered.length : total, page, limit, pages: Math.ceil((query.size ? filtered.length : total) / limit) }
   }
-  async get(id) { const product = await this.prisma.product.findUnique({ where: { id: integer(id, 'Product ID', { min: 1 }) } }); if (!product) throw new HttpError(404, 'Product not found'); return serializeProduct(product) }
-  async create(input, userId) { return serializeProduct(await this.prisma.product.create({ data: { ...dataFrom(input), createdById: userId, updatedById: userId } })) }
-  async update(id, input, userId) { return serializeProduct(await this.prisma.product.update({ where: { id: integer(id, 'Product ID', { min: 1 }) }, data: { ...dataFrom(input, true), updatedById: userId } })) }
+  async get(id) { const product = await this.prisma.product.findUnique({ where: { id: integer(id, 'Product ID', { min: 1 }) } }); if (!product) throw new HttpError(404, 'Product not found'); return this.serialize(product) }
+  async create(input, userId) { return this.serialize(await this.prisma.product.create({ data: { ...dataFrom(input), createdById: userId, updatedById: userId } })) }
+  async update(id, input, userId) { return this.serialize(await this.prisma.product.update({ where: { id: integer(id, 'Product ID', { min: 1 }) }, data: { ...dataFrom(input, true), updatedById: userId } })) }
   async remove(id) { await this.prisma.product.delete({ where: { id: integer(id, 'Product ID', { min: 1 }) } }); return { success: true, message: 'Product deleted' } }
 }

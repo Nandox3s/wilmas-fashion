@@ -28,3 +28,5 @@ terraform: terraform fmt -check -recursive; terraform init -backend=false; terra
 ```
 
 La guía principal está en [DEPLOYMENT.md](DEPLOYMENT.md); auditoría, rollback, seguridad y costos están en `docs/`.
+
+El perfil completo, su migración por túnel SSM, despliegue en dos fases y rollback se documentan en `docs/aws-full-deployment.md`; el costo detallado está en `docs/aws-full-cost-estimate.md`.

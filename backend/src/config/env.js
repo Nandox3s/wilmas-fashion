@@ -21,6 +21,7 @@ if (!jwtSecret) throw new Error('JWT_SECRET environment variable is required')
 export const env = Object.freeze({
   nodeEnv,
   isProduction: nodeEnv === 'production',
+  trustProxy: process.env.TRUST_PROXY === '1' ? 1 : false,
   port: number('PORT', 4000, { min: 1, max: 65535 }),
   jwtSecret,
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((value) => value.trim()).filter(Boolean),

@@ -1,7 +1,8 @@
-import app from './app.js'
-import { env } from './config/env.js'
 import { logger } from './config/logger.js'
-import { prisma } from './config/prisma.js'
+import { loadManagedSecrets } from './config/managedSecrets.js'
+
+await loadManagedSecrets()
+const [{ default: app }, { env }, { prisma }] = await Promise.all([import('./app.js'), import('./config/env.js'), import('./config/prisma.js')])
 
 const server = app.listen(env.port, () => logger.info('server_started', { port: env.port, environment: env.nodeEnv }))
 let shuttingDown = false

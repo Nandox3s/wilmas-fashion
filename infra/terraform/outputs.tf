@@ -5,3 +5,6 @@ output "invoices_bucket" { value = module.storage.invoices_bucket_name }
 output "invoice_queue_url" { value = module.sqs.queue_url }
 output "database_endpoint" { value = module.rds.endpoint }
 output "backend_url" { value = module.backend.url }
+output "backend_https_url" { value = module.backend.https_url }
+output "amplify_app_id" { value = module.amplify.app_id }
+output "amplify_branch_url" { value = module.amplify.branch_url }

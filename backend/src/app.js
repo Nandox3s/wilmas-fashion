@@ -51,12 +51,13 @@ function providers() {
 
 export function createApp({ prisma = defaultPrisma, providerOverrides = {} } = {}) {
   const app = express()
+  app.set('trust proxy', env.trustProxy)
   const selected = { ...providers(), ...providerOverrides }
   const emailService = new EmailService(selected.email)
   const storageService = new StorageService(selected.storage)
   const services = {
     prisma,
-    auth: new AuthService(prisma), products: new ProductService(prisma), orders: new OrderService(prisma),
+    auth: new AuthService(prisma), products: new ProductService(prisma, storageService), orders: new OrderService(prisma),
     email: emailService, storage: storageService,
   }
   services.invoices = new InvoiceService(prisma, selected.invoice, storageService, emailService)

@@ -11,4 +11,5 @@ export class StorageService {
   }
   async putInvoice({ type, body }) { return this.provider.putObject({ namespace: 'invoices', body, extension: type === 'xml' ? '.xml' : '.pdf' }) }
   async signedInvoice(key) { return this.provider.getSignedDownloadUrl({ key, expiresIn: env.presignedUrlTtl }) }
+  async signedProduct(key) { return this.provider.getSignedDownloadUrl({ key, expiresIn: env.presignedUrlTtl }) }
 }

@@ -24,3 +24,5 @@ Elastic Beanstalk está parametrizado en Terraform y deshabilitado en dev. Singl
 6. Seguir `docs/production-cutover.md` y mantener Render/Vercel.
 
 Si GitHub Actions no inicia por facturación, distinguir job no iniciado de código fallido. No usar access keys permanentes; despliegue futuro usará GitHub OIDC y environment `production` con aprobación.
+
+Para la arquitectura completa Amplify → CloudFront → Elastic Beanstalk → RDS, seguir `docs/aws-full-deployment.md`. Ese runbook reemplaza cualquier intento de abrir RDS públicamente y mantiene migraciones fuera de los hooks concurrentes de EB.
