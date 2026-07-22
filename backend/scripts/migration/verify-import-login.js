@@ -1,7 +1,7 @@
 import 'dotenv/config'
+import { once } from 'node:events'
 import { readFile } from 'node:fs/promises'
 import { PrismaClient } from '@prisma/client'
-import request from 'supertest'
 import { createApp } from '../../src/app.js'
 
 const seedSource = await readFile(new URL('../../prisma/seed.js', import.meta.url), 'utf8')
@@ -11,7 +11,22 @@ if (!passwordMatch) throw new Error('Unable to locate the legacy demo password f
 const prisma = new PrismaClient()
 const imported = await prisma.user.findFirst({ orderBy: { id: 'asc' }, select: { email: true } })
 if (!imported) throw new Error('No imported user exists')
-const response = await request(createApp({ prisma })).post('/api/auth/login').send({ email: imported.email, password: passwordMatch[2] })
-console.log(JSON.stringify({ event: 'imported_login_verified', status: response.status, authenticated: Boolean(response.body.token), role: response.body.user?.role }))
-await prisma.$disconnect()
-if (response.status !== 200 || !response.body.token) process.exitCode = 1
+const server = createApp({ prisma }).listen(0, '127.0.0.1')
+await once(server, 'listening')
+let status = 0
+let body = {}
+try {
+  const address = server.address()
+  const response = await fetch(`http://127.0.0.1:${address.port}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: imported.email, password: passwordMatch[2] }),
+  })
+  status = response.status
+  body = await response.json()
+} finally {
+  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+  await prisma.$disconnect()
+}
+console.log(JSON.stringify({ event: 'imported_login_verified', status, authenticated: Boolean(body.token), role: body.user?.role }))
+if (status !== 200 || !body.token) process.exitCode = 1

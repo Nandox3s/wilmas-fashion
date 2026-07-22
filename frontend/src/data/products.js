@@ -26,7 +26,7 @@ export const getProductImageUrl = (product) => {
     if (product.image.startsWith('/img_wf/')) return product.image
     if (availableFiles.includes(product.image)) return getImageUrl(product.image)
 
-    const apiBase = (import.meta.env.VITE_API_BASE || 'http://localhost:4000').replace(/\/$/, '')
+    const apiBase = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
     const uploadPath = product.image.startsWith('/') ? product.image : `/uploads/${product.image}`
     return `${apiBase}${uploadPath}`
   }

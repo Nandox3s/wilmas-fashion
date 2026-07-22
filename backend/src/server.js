@@ -4,7 +4,7 @@ import { loadManagedSecrets } from './config/managedSecrets.js'
 await loadManagedSecrets()
 const [{ default: app }, { env }, { prisma }] = await Promise.all([import('./app.js'), import('./config/env.js'), import('./config/prisma.js')])
 
-const server = app.listen(env.port, () => logger.info('server_started', { port: env.port, environment: env.nodeEnv }))
+const server = app.listen(env.port, env.host, () => logger.info('server_started', { host: env.host, port: env.port, environment: env.nodeEnv }))
 let shuttingDown = false
 async function shutdown(signal) {
   if (shuttingDown) return

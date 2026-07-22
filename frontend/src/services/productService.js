@@ -62,48 +62,18 @@ export function getLocalProducts() {
 }
 
 export async function loadCatalogProducts() {
-  const localProducts = getLocalProducts()
-
   try {
     const response = await axios.get('/api/products', {
       params: { limit: 100 },
       skipGlobalErrorToast: true,
     })
     const apiProducts = (response.data?.items || []).map(normalizeApiProduct)
-    const usedApiIds = new Set()
-
-    const mergedLocal = localProducts.map((local) => {
-      const match = apiProducts.find((api) => (
-        api.sku === local.sku ||
-        (
-          api.name.toLocaleLowerCase() === local.name.toLocaleLowerCase() &&
-          api.color.toLocaleLowerCase() === local.color.toLocaleLowerCase()
-        )
-      ))
-
-      if (!match) return local
-      usedApiIds.add(match.apiId)
-
-      return {
-        ...local,
-        apiId: match.apiId,
-        sku: match.sku,
-        price: match.price,
-        discount: match.discount,
-        stock: match.stock,
-        image: match.image || local.image,
-        sizes: match.sizes.length ? match.sizes : local.sizes,
-        source: 'synced',
-      }
-    })
-
-    const apiOnly = apiProducts.filter((product) => !usedApiIds.has(product.apiId))
     return {
-      products: [...mergedLocal, ...apiOnly],
+      products: apiProducts,
       source: 'api',
     }
   } catch {
-    return { products: localProducts, source: 'local' }
+    return { products: getLocalProducts(), source: 'local' }
   }
 }
 

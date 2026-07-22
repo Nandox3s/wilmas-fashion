@@ -56,6 +56,7 @@ test('negative price returns 400', async () => { const { prisma, users } = repos
 test('negative stock returns 400', async () => { const { prisma, users } = repository(); const response = await request(createApp({ prisma })).post('/api/products').set('Authorization', bearer(users[1])).send({ name: 'Otra', sku: 'SKU-X', brand: 'Wilmas', category: 'Faldas', sizes: ['S'], color: 'Negro', price: 1, stock: -1 }); assert.equal(response.status, 400) })
 test('expired JWT returns 401', async () => { const { prisma, users } = repository(); const token = jwt.sign({ userId: users[1].id }, process.env.JWT_SECRET, { expiresIn: -1 }); assert.equal((await request(createApp({ prisma })).get('/api/auth/me').set('Authorization', `Bearer ${token}`)).status, 401) })
 test('unknown route returns consistent 404', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).get('/not-real'); assert.equal(response.status, 404); assert.equal(response.body.code, 'NOT_FOUND') })
+test('invoice files are never public through uploads', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).get('/uploads/invoices/probe.pdf'); assert.equal(response.status, 404) })
 
 const schema = await readFile(new URL('../prisma/schema.prisma', import.meta.url), 'utf8')
 for (const [name, pattern] of [

@@ -41,16 +41,18 @@ import { createInvoiceWorker } from './workers/invoiceWorker.js'
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, validateImageBytes } from './utils/fileValidation.js'
 
 function providers() {
+  const uploadsRoot = resolve(env.uploadsDir)
   return {
     payment: env.paymentProvider === 'mock' ? new MockPaymentProvider() : new PayPhoneProvider(),
     invoice: env.invoiceProvider === 'mock' ? new MockInvoiceProvider() : new DatilProvider(),
-    storage: env.storageProvider === 'local' ? new LocalStorageProvider(resolve('uploads')) : new S3StorageProvider(),
+    storage: env.storageProvider === 'local' ? new LocalStorageProvider(uploadsRoot) : new S3StorageProvider(),
     email: env.emailProvider === 'console' ? new ConsoleEmailProvider() : new SesEmailProvider(),
   }
 }
 
 export function createApp({ prisma = defaultPrisma, providerOverrides = {} } = {}) {
   const app = express()
+  const uploadsRoot = resolve(env.uploadsDir)
   app.set('trust proxy', env.trustProxy)
   const selected = { ...providers(), ...providerOverrides }
   const emailService = new EmailService(selected.email)
@@ -72,7 +74,7 @@ export function createApp({ prisma = defaultPrisma, providerOverrides = {} } = {
   app.use(express.urlencoded({ limit: '1mb', extended: true }))
   app.use((req, res, next) => { req.services = services; next() })
   app.use('/uploads/invoices', (req, res) => res.status(404).json({ error: 'Not found' }))
-  app.use('/uploads', express.static(resolve('uploads'), { fallthrough: true, dotfiles: 'deny', maxAge: env.isProduction ? '1h' : 0 }))
+  app.use('/uploads', express.static(uploadsRoot, { fallthrough: true, dotfiles: 'deny', maxAge: env.isProduction ? '1h' : 0 }))
 
   app.get('/', (req, res) => res.json({ message: 'Wilmas Fashion API', status: 'running', timestamp: new Date().toISOString() }))
   app.get('/api/ping', asyncHandler(async (req, res) => { await prisma.$queryRaw`SELECT 1`; res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() }) }))
@@ -87,7 +89,7 @@ export function createApp({ prisma = defaultPrisma, providerOverrides = {} } = {
   app.get('/api/admin/orders', authenticate, authorizeRoles('ADMIN'), asyncHandler(async (req, res) => res.json(await services.orders.all())))
   app.post('/api/admin/invoices/:id/retry', authenticate, authorizeRoles('ADMIN'), invoiceController.retry)
 
-  const localUploads = resolve('uploads')
+  const localUploads = uploadsRoot
   const upload = multer({ storage: multer.diskStorage({ destination: async (req, file, callback) => { try { await mkdir(localUploads, { recursive: true }); callback(null, localUploads) } catch (error) { callback(error) } }, filename: (req, file, callback) => callback(null, `${Date.now()}-${crypto.randomUUID()}${extname(file.originalname).toLowerCase()}`) }), limits: { fileSize: MAX_IMAGE_BYTES }, fileFilter: (req, file, callback) => callback(null, IMAGE_TYPES[file.mimetype]?.includes(extname(file.originalname).toLowerCase()) === true) })
   app.post('/api/upload', authenticate, authorizeRoles('USER', 'ADMIN'), upload.single('file'), asyncHandler(async (req, res) => {
     if (!req.file) throw new HttpError(400, 'No valid image uploaded')

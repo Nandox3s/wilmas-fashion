@@ -64,6 +64,7 @@ test('real PostgreSQL order, payment, invoice and authorization workflow', async
   assert.match(invoice.events[0].message, /DEMO/)
   const xmlResponse = await request(app).get(`/api/invoices/${invoice.id}/xml-url`).set(auth(userToken))
   assert.equal(xmlResponse.status, 200); assert.equal(xmlResponse.body.demo, true)
+  assert.equal(xmlResponse.headers['cache-control'], 'no-store')
   assert.match(Buffer.from(xmlResponse.body.url.split(',')[1], 'base64').toString(), /NOT A TAX DOCUMENT/)
 
   const rejectedOrder = await request(app).post('/api/orders').set(auth(userToken)).send({ ...customer, items: [{ productId: productOne.body.id, quantity: 1, size: 'S', color: 'Wine' }] })

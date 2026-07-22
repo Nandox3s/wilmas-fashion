@@ -7,7 +7,7 @@ import { Toaster } from 'react-hot-toast'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE || ''
 axios.interceptors.response.use(
   res => res,
   err => {
