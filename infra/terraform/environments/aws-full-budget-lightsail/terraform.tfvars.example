@@ -1,5 +1,6 @@
-# TEST-NET placeholder: replace it with the administrator's current public IPv4 /32 before any apply.
-ssh_allowed_cidrs = ["203.0.113.10/32"]
+# Required: replace this deliberately invalid marker with the administrator's
+# current public IPv4 /32. Planning fails until it is replaced.
+ssh_allowed_cidrs = ["REPLACE_WITH_PUBLIC_IPV4/32"]
 
 instance_bundle_id        = "small_3_0"
 availability_zone         = "us-east-1a"

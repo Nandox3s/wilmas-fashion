@@ -9,9 +9,9 @@ User=wilmas
 Group=wilmas
 WorkingDirectory=/opt/wilmas-fashion/backend
 EnvironmentFile=/etc/wilmas-fashion/backend.env
+ExecStart=/usr/bin/env MIGRATION_EXPORT=/opt/wilmas-fashion/backend/migration-exports/sqlite-export.json /usr/bin/node scripts/migration/validate-export.js
 ExecStart=/usr/bin/env CONFIRM_PRODUCTION_IMPORT=yes MIGRATION_EXPORT=/opt/wilmas-fashion/backend/migration-exports/sqlite-export.json MIGRATION_REPORT=/opt/wilmas-fashion/logs/backend/import-report.json /usr/bin/node scripts/migration/import-postgresql-data.js
 ExecStart=/usr/bin/env MIGRATION_EXPORT=/opt/wilmas-fashion/backend/migration-exports/sqlite-export.json /usr/bin/node scripts/migration/validate-import.js
-ExecStart=/usr/bin/node scripts/migration/verify-import-login.js
 TimeoutStartSec=10min
 UMask=0027
 NoNewPrivileges=true

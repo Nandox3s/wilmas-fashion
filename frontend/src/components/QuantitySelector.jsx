@@ -1,4 +1,4 @@
-import React, { useId } from 'react'
+import { useId } from 'react'
 
 export default function QuantitySelector({ value, onChange, max, label = 'Cantidad', compact = false, disabled = false }) {
   const labelId = useId()

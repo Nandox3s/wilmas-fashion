@@ -1,4 +1,3 @@
-import React from 'react'
 import { formatCardNumber, formatExpiry, onlyDigits } from '../utils/checkout'
 import { formatCurrency } from '../utils/cart'
 

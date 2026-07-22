@@ -41,7 +41,10 @@ jobs:
       - working-directory: backend
         run: npm test
       - working-directory: backend
-        run: node --check src/app.js && node --check src/server.js
+        run: npm audit --omit=dev
+      - working-directory: backend
+        shell: bash
+        run: find src scripts -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
   frontend:
     runs-on: ubuntu-latest
@@ -56,6 +59,32 @@ jobs:
         run: npm ci
       - working-directory: frontend
         run: npm test && npm run build && npm run build -- --mode lightsail
+      - working-directory: frontend
+        run: npm audit --omit=dev
+      - shell: bash
+        run: |
+          if grep -R -E 'wilmas-fashion\.onrender\.com|localhost|127\.0\.0\.1:4000|postgres(ql)?://' frontend/dist; then
+            echo 'Lightsail dist contains localhost, a forbidden deployment origin, or a database URL.' >&2
+            exit 1
+          fi
+      - shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path scripts/build-lightsail-artifact.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count) { throw ($errors | Out-String) }
+          ./scripts/build-lightsail-artifact.ps1 -OutputPath artifacts/ci-lightsail.tar.gz
+
+  operations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: bash -n ops/lightsail/*.sh ops/lightsail/templates/reload-nginx-after-renewal
 
   terraform:
     runs-on: ubuntu-latest
@@ -75,7 +104,7 @@ jobs:
 
   deploy-placeholder:
     if: false
-    needs: [backend, frontend, terraform]
+    needs: [backend, frontend, operations, terraform]
     runs-on: ubuntu-latest
     environment: production
     permissions:

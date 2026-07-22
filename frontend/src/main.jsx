@@ -3,9 +3,8 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { CartProvider } from './context/CartContext'
-import { Toaster } from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
 import axios from 'axios'
-import toast from 'react-hot-toast'
 
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE || ''
 axios.interceptors.response.use(

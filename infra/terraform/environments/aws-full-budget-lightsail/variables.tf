@@ -21,7 +21,7 @@ variable "availability_zone" {
 }
 
 variable "ssh_allowed_cidrs" {
-  description = "Administrator IPv4 CIDRs allowed to reach SSH. Public SSH is deliberately rejected."
+  description = "Administrator public IPv4 /32 addresses allowed to reach SSH. Broader CIDRs are deliberately rejected."
   type        = set(string)
 
   validation {
@@ -29,10 +29,15 @@ variable "ssh_allowed_cidrs" {
       length(var.ssh_allowed_cidrs) > 0 &&
       alltrue([
         for cidr in var.ssh_allowed_cidrs :
-        can(cidrhost(cidr, 0)) && !strcontains(cidr, ":") && cidr != "0.0.0.0/0"
+        can(cidrhost(cidr, 0)) &&
+        !strcontains(cidr, ":") &&
+        endswith(cidr, "/32") &&
+        !startswith(cidr, "192.0.2.") &&
+        !startswith(cidr, "198.51.100.") &&
+        !startswith(cidr, "203.0.113.")
       ])
     )
-    error_message = "Provide at least one valid IPv4 CIDR and never use 0.0.0.0/0 for SSH."
+    error_message = "Provide at least one real administrator IPv4 /32; empty sets, broader networks, IPv6, invalid CIDRs, and RFC 5737 TEST-NET ranges are rejected."
   }
 }
 
@@ -53,7 +58,7 @@ variable "domain_name" {
 variable "enable_automatic_snapshots" {
   description = "Plan the Lightsail daily automatic snapshot add-on. Snapshot storage is billed separately."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "snapshot_time" {

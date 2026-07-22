@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getMyOrders } from '../services/orderService'
 import { formatCurrency } from '../utils/cart'

@@ -1,10 +1,7 @@
 import { createHash } from 'node:crypto'
 import { cp, mkdir, readFile, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-const scriptDir = dirname(fileURLToPath(import.meta.url))
-const backendDir = resolve(scriptDir, '../..')
 const [backupArgument, command = 'verify'] = process.argv.slice(2)
 if (!backupArgument) throw new Error('Usage: node verify-backup.js <backup-directory> [verify|restore]')
 const backupDir = resolve(backupArgument)

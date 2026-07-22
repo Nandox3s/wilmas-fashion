@@ -24,9 +24,13 @@ uploads_name="uploads-${stamp}.tar.gz"
 database_tmp="$(mktemp --tmpdir="${BACKUP_ROOT}" ".${database_name}.XXXXXX")"
 uploads_tmp="$(mktemp --tmpdir="${BACKUP_ROOT}" ".${uploads_name}.XXXXXX")"
 
-case "${database_tmp}:${uploads_tmp}" in
-  "${BACKUP_ROOT}"/.postgresql-*":"${BACKUP_ROOT}"/.uploads-*) ;;
-  *) echo "Refusing unexpected temporary backup paths." >&2; exit 1 ;;
+case "${database_tmp}" in
+  "${BACKUP_ROOT}"/.postgresql-*) ;;
+  *) echo "Refusing unexpected temporary database backup path." >&2; exit 1 ;;
+esac
+case "${uploads_tmp}" in
+  "${BACKUP_ROOT}"/.uploads-*) ;;
+  *) echo "Refusing unexpected temporary uploads backup path." >&2; exit 1 ;;
 esac
 
 cleanup() {

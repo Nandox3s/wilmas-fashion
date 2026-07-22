@@ -74,7 +74,8 @@ Plan:
 ```powershell
 Set-Location infra/terraform/environments/aws-full-budget-lightsail
 Copy-Item terraform.tfvars.example terraform.tfvars
-# Reemplace 203.0.113.10/32 con la IPv4 pública real del administrador /32.
+# Reemplace REPLACE_WITH_PUBLIC_IPV4/32 con la IPv4 pública real del administrador /32.
+# Terraform rechaza valores vacíos, 0.0.0.0/0 y redes TEST-NET.
 terraform fmt -recursive
 terraform init
 terraform validate
@@ -88,17 +89,31 @@ Aceptar únicamente `4 to add, 0 to change, 0 to destroy`. El `terraform.tfvars`
 Después de un `apply` autorizado en otra sesión, descargar la clave privada regional de Lightsail, protegerla localmente y usar el output `ssh_command_example`. Mantener la clave fuera de Git. Para transferir exactamente los archivos confirmados sin hacer `push`:
 
 ```powershell
-New-Item -ItemType Directory -Force artifacts
-git archive --format=tar.gz --output=artifacts/wilmas-fashion-release.tar.gz HEAD
-Get-FileHash artifacts/wilmas-fashion-release.tar.gz -Algorithm SHA256
-scp -i C:\ruta\LightsailDefaultKey-us-east-1.pem artifacts/wilmas-fashion-release.tar.gz ubuntu@IP_ESTATICA:/home/ubuntu/
+Set-Location frontend
+npm ci
+npm test
+npm run build -- --mode lightsail
+Set-Location ..
+powershell -NoProfile -File scripts/build-lightsail-artifact.ps1
+scp -i C:\ruta\LightsailDefaultKey-us-east-1.pem `
+  artifacts/wilmas-fashion-lightsail.tar.gz `
+  artifacts/wilmas-fashion-lightsail.tar.gz.sha256 `
+  ubuntu@IP_ESTATICA:/home/ubuntu/
 ```
+
+El builder usa una allowlist: backend runtime, schema y migraciones Prisma, scripts de importación necesarios, `frontend/dist` y `ops/lightsail`. Falla si encuentra tests, `node_modules`, `.git`, `.env`, exports, SQLite, estados/planes Terraform, claves o rutas sensibles. Produce además un manifiesto local auditable.
 
 En la instancia:
 
 ```bash
+cd /home/ubuntu
+sha256sum --check wilmas-fashion-lightsail.tar.gz.sha256
+if tar -tzf wilmas-fashion-lightsail.tar.gz | grep -E '(^/|(^|/)\.\.(/|$))'; then
+  echo 'El artefacto contiene una ruta insegura.' >&2
+  exit 1
+fi
 mkdir -p /home/ubuntu/wilmas-release
-tar -xzf /home/ubuntu/wilmas-fashion-release.tar.gz -C /home/ubuntu/wilmas-release
+tar -xzf /home/ubuntu/wilmas-fashion-lightsail.tar.gz -C /home/ubuntu/wilmas-release
 cd /home/ubuntu/wilmas-release
 sudo SSH_ALLOWED_CIDRS='IP_ADMIN/32' DOMAIN_NAME='_' bash ops/lightsail/provision-base.sh
 sudo bash ops/lightsail/configure-database.sh
@@ -108,7 +123,7 @@ sudo bash ops/lightsail/configure-database.sh
 
 La instancia es dedicada: cada ejecución reconstruye el ruleset UFW y conserva únicamente SSH desde los CIDR indicados, HTTP y HTTPS. Esto elimina reglas UFW agregadas manualmente; durante la convergencia sigue vigente el firewall de Lightsail con la misma política.
 
-Durante el bootstrap Nginx solo responde el challenge ACME; cualquier otra ruta HTTP devuelve 503. La tienda no se publica hasta instalar el certificado y el vhost HTTPS.
+Mientras el dominio permanezca vacío, Nginx sirve temporalmente la tienda y `/api` por HTTP en la IP estática. No introducir credenciales ni datos sensibles a través de Internet hasta activar TLS. `enable-https.sh` exige que el DNS resuelva exactamente a la IP esperada y entonces sustituye el vhost por HTTPS con redirección desde HTTP.
 
 ## 3. Configurar secretos
 
@@ -121,7 +136,7 @@ NODE_ENV=production
 HOST=127.0.0.1
 PORT=4000
 TRUST_PROXY=1
-CORS_ORIGINS="https://DOMINIO"
+CORS_ORIGINS="http://IP_ESTATICA"
 UPLOADS_DIR=/opt/wilmas-fashion/uploads
 STORAGE_PROVIDER=local
 CHECKOUT_MODE=mock
@@ -138,28 +153,19 @@ sudo stat -c '%U:%G %a %n' /etc/wilmas-fashion/backend.env
 sudo test "$(stat -c '%U:%G:%a' /etc/wilmas-fashion/backend.env)" = 'root:wilmas:640'
 ```
 
-No usar `CHECKOUT_MODE=production` con proveedores mock: la aplicación lo rechaza intencionalmente.
+No usar `CHECKOUT_MODE=production` con proveedores mock: la aplicación lo rechaza intencionalmente. Después de habilitar HTTPS, cambiar `CORS_ORIGINS` a `https://DOMINIO` y reiniciar el backend.
 
 ## 4. Construir y colocar la aplicación
 
-Construir como el usuario `ubuntu`, secuencialmente:
+El frontend ya viene compilado en el artefacto allowlist. En la instancia solo se instalan dependencias productivas del backend y se genera Prisma:
 
 ```bash
 cd /home/ubuntu/wilmas-release/backend
 npm ci --omit=dev
 npx prisma generate
-
-cd /home/ubuntu/wilmas-release/frontend
-npm ci
-npm test
-npm run build -- --mode lightsail
-if grep -R -E 'wilmas-fashion\.onrender\.com|localhost:4000|127\.0\.0\.1:4000' dist; then
-  echo 'The Lightsail build contains a remote or development API origin.' >&2
-  exit 1
-fi
 ```
 
-`npm run build` conserva deliberadamente el origen Render para el rollback de Vercel. Solo el artefacto construido con `--mode lightsail` usa `/api` y `/uploads` relativos y debe copiarse a Nginx.
+`npm run build` normal conserva deliberadamente el origen Render para el rollback de Vercel. El modo Lightsail sustituye el fallback interno e inalcanzable `http://localhost` de Axios por `https://invalid.invalid`; no altera la base API del navegador. El builder exige que `dist` no contenga `localhost`, el origen de Render, `127.0.0.1:4000`, URLs PostgreSQL ni claves privadas.
 
 Copiar solo los artefactos previstos; uploads, backups y secretos quedan fuera:
 
@@ -188,14 +194,14 @@ sudo systemctl start wilmas-migrate.service
 sudo journalctl -u wilmas-migrate.service --no-pager -n 100
 ```
 
-3. Importar explícitamente 1 usuario, 6 productos y 0 ventas, y después reconciliar y probar el login importado. La unidad carga `backend.env` directamente, sin evaluarlo como código shell:
+3. Importar explícitamente 1 usuario, 6 productos y 0 ventas. La unidad valida primero el export, importa y valida el destino; carga `backend.env` directamente, sin evaluarlo como código shell:
 
 ```bash
 sudo systemctl start wilmas-import.service
 sudo journalctl -u wilmas-import.service --no-pager -n 200
 ```
 
-El reporte debe indicar `valid: true`, origen y destino `users: 1`, `products: 6`, `sales: 0`, emails/SKU únicos, cero diferencias, cero ventas huérfanas y hashes bcrypt válidos. `verify-import-login.js` solo lee la contraseña demo histórica para la verificación; no ejecuta `seed`.
+El reporte debe indicar `valid: true`, origen y destino `users: 1`, `products: 6`, `sales: 0`, emails/SKU únicos, cero diferencias, cero ventas huérfanas y hashes bcrypt válidos. `seed.js` y `verify-import-login.js` permanecen en el repositorio por compatibilidad, pero no entran al artefacto porque contienen o leen la contraseña demo histórica.
 
 4. **Gate obligatorio antes de publicar:** la contraseña demo importada es conocida por el repositorio. Rotarla de manera interactiva; la entrada no se muestra ni queda en argumentos o logs:
 
@@ -245,21 +251,20 @@ Cuando migración, importación y uploads hayan sido validados:
 ```bash
 sudo systemctl enable --now wilmas-backend.service
 sudo systemctl status wilmas-backend.service --no-pager
-curl --fail http://127.0.0.1:4000/api/ping
-curl --fail http://127.0.0.1:4000/api/products?limit=100
+sudo wilmas-smoke-test http://127.0.0.1
 ```
+
+Mientras solo exista HTTP, limitarse a estos smoke tests sin credenciales. No probar el login importado, pedidos ni datos personales por una conexión pública sin cifrar.
 
 HTTPS solo puede emitirse después de que un registro A real resuelva a la IP estática. No cambiar DNS en esta fase. Tras una autorización futura:
 
 ```bash
 sudo bash /home/ubuntu/wilmas-release/ops/lightsail/enable-https.sh DOMINIO EMAIL IP_ESTATICA
-curl --fail https://DOMINIO/api/ping
-curl --fail https://DOMINIO/api/products?limit=100
-curl --head https://DOMINIO/uploads/invoices/probe.pdf
+sudo wilmas-smoke-test https://DOMINIO
 sudo certbot renew --dry-run
 ```
 
-El último request debe devolver 404. Verificar listeners y configuración:
+El smoke test exige 404 en la ruta pública de facturas y verifica que 4000/5432 solo escuchen en loopback. Verificar además configuración y servicios:
 
 ```bash
 sudo nginx -t
@@ -286,22 +291,29 @@ sudo systemctl list-timers wilmas-backup.timer
 
 Cada ejecución crea un `pg_dump` custom comprimido y un tar.gz de uploads, valida ambos, genera SHA-256, mueve los archivos atómicamente y conserva siete días. El snapshot automático de las 06:00 UTC captura el dump reciente; conserva siete snapshots y genera el costo documentado.
 
-Restaurar PostgreSQL en una instancia/base vacía:
+Restaurar PostgreSQL siempre en una base nueva; el script rechaza `wilmas_fashion` y cualquier base preexistente:
 
 ```bash
-sha256sum --check postgresql-FECHA.dump.sha256
-sudo -u postgres createdb --owner=wilmas wilmas_fashion_restore
-sudo -u postgres pg_restore --exit-on-error --no-owner --role=wilmas --dbname=wilmas_fashion_restore postgresql-FECHA.dump
-sudo -u postgres psql --dbname=wilmas_fashion_restore --command='SET ROLE wilmas; SELECT COUNT(*) FROM "User";'
+sudo wilmas-restore-postgresql \
+  /opt/wilmas-fashion/backups/postgresql-FECHA.dump \
+  wilmas_fashion_restore_REVISION \
+  /opt/wilmas-fashion/backups/postgresql-FECHA.dump.sha256
 ```
 
 Validar la base restaurada antes de cambiar conexiones. Para uploads:
 
 ```bash
-sha256sum --check uploads-FECHA.tar.gz.sha256
-tar --list --gzip --file=uploads-FECHA.tar.gz
-sudo tar --extract --gzip --file=uploads-FECHA.tar.gz --directory=/opt/wilmas-fashion/uploads
-sudo chown -R wilmas:wilmas /opt/wilmas-fashion/uploads
+sudo wilmas-restore-uploads \
+  /opt/wilmas-fashion/backups/uploads-FECHA.tar.gz \
+  /opt/wilmas-fashion/backups/uploads-FECHA.tar.gz.sha256
+```
+
+El restore de uploads solo extrae en `/opt/wilmas-fashion/restore-staging`, rechaza rutas absolutas, traversal y tipos que no sean archivos regulares/directorios, y nunca sobrescribe el directorio vivo. Revisar el staging y después copiarlo manualmente conservando como propietario al usuario del backend:
+
+```bash
+sudo rsync --archive --checksum --chown=wilmas:wilmas \
+  /opt/wilmas-fashion/restore-staging/uploads.REVISION/ \
+  /opt/wilmas-fashion/uploads/
 ```
 
 Para servidor completo, crear una instancia nueva desde un snapshot automático o desde una copia manual conservada, usar un bundle igual o mayor, validar en una IP temporal y solo después reasociar la IP estática. Los snapshots automáticos se eliminan al eliminar su instancia de origen; conservar como manual el snapshot crítico antes de una operación destructiva.

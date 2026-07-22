@@ -14,8 +14,8 @@ try {
   throw new Error('DATABASE_URL_TEST must be a valid PostgreSQL URL')
 }
 
-if (!databaseName.endsWith('_test')) {
-  throw new Error(`Refusing to run tests: database name must end in _test (received ${databaseName || '<empty>'})`)
+if (databaseName !== 'wilmas_fashion_test') {
+  throw new Error(`Refusing to run tests: database name must be wilmas_fashion_test (received ${databaseName || '<empty>'})`)
 }
 
 process.env.NODE_ENV = 'test'

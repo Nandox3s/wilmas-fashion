@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { env } from '../config/env.js'
 import { HttpError } from '../utils/errors.js'
 import { serializeMoney } from '../utils/validation.js'

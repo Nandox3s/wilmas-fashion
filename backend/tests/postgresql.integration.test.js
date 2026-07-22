@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { PrismaClient } from '@prisma/client'
 import request from 'supertest'
 
-assert.match(new URL(process.env.DATABASE_URL).pathname, /_test$/)
+assert.equal(decodeURIComponent(new URL(process.env.DATABASE_URL).pathname), '/wilmas_fashion_test')
 const { createApp } = await import('../src/app.js')
 const prisma = new PrismaClient()
 const app = createApp({ prisma })

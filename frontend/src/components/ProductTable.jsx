@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import ProductModal from './ProductModal'

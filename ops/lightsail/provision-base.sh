@@ -26,18 +26,24 @@ IFS=',' read -r -a ssh_cidrs <<<"${SSH_ALLOWED_CIDRS}"
 for index in "${!ssh_cidrs[@]}"; do
   ssh_cidrs[${index}]="${ssh_cidrs[${index}]//[[:space:]]/}"
   cidr="${ssh_cidrs[${index}]}"
-  if [[ ${cidr} == "0.0.0.0/0" || ! ${cidr} =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$ ]]; then
-    echo "Invalid or public SSH CIDR: ${cidr}" >&2
+  if [[ ! ${cidr} =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/32$ ]]; then
+    echo "Each SSH source must be a valid administrator IPv4 /32." >&2
     exit 1
   fi
   ipv4_address="${cidr%/*}"
   IFS='.' read -r octet_1 octet_2 octet_3 octet_4 <<<"${ipv4_address}"
   for octet in "${octet_1}" "${octet_2}" "${octet_3}" "${octet_4}"; do
     if [[ ! ${octet} =~ ^(0|[1-9][0-9]{0,2})$ ]] || ((10#${octet} > 255)); then
-      echo "Invalid IPv4 address in SSH CIDR: ${cidr}" >&2
+      echo "An SSH source contains an invalid IPv4 address." >&2
       exit 1
     fi
   done
+  case "${ipv4_address}" in
+    192.0.2.*|198.51.100.*|203.0.113.*)
+      echo "RFC 5737 TEST-NET is not a usable administrator SSH source." >&2
+      exit 1
+      ;;
+  esac
 done
 
 exec 9>/run/lock/wilmas-provision.lock
@@ -202,6 +208,9 @@ systemctl enable --now nginx
 systemctl reload nginx
 
 install -o root -g root -m 0755 "${SCRIPT_DIR}/backup-postgresql.sh" /usr/local/sbin/wilmas-backup
+install -o root -g root -m 0755 "${SCRIPT_DIR}/restore-postgresql.sh" /usr/local/sbin/wilmas-restore-postgresql
+install -o root -g root -m 0755 "${SCRIPT_DIR}/restore-uploads.sh" /usr/local/sbin/wilmas-restore-uploads
+install -o root -g root -m 0755 "${SCRIPT_DIR}/smoke-test.sh" /usr/local/sbin/wilmas-smoke-test
 install -o root -g root -m 0644 "${SCRIPT_DIR}/templates/wilmas-backend.service" /etc/systemd/system/wilmas-backend.service
 install -o root -g root -m 0644 "${SCRIPT_DIR}/templates/wilmas-migrate.service" /etc/systemd/system/wilmas-migrate.service
 install -o root -g root -m 0644 "${SCRIPT_DIR}/templates/wilmas-import.service" /etc/systemd/system/wilmas-import.service

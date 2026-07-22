@@ -34,7 +34,6 @@ export const getProductImageUrl = (product) => {
   return getImageUrl('placeholder.svg')
 }
 
-// Nuevo producto: Palazo (Mujer) — tallas S-M-L-XL, precio $12
 products.push({
   id: 'Palazo_Mujer',
   file: 'Palazo.jpg',
@@ -48,7 +47,6 @@ products.push({
   sizes: ['S', 'M', 'L', 'XL']
 })
 
-// Archivos presentes en public/img_wf — edición generada desde el workspace
 export const availableFiles = [
   'BeichV_Sincere.jpg',
   'Beich_Nike.jpg',
@@ -64,7 +62,6 @@ export const availableFiles = [
   'N_Oversize.jpg',
   'N_Sincere.jpg',
   'Palazo.jpg',
-  'Palazo.svg',
   'R_NewEra.jpg',
   'R_Nike.jpg',
   'V_Sincere.jpg',
