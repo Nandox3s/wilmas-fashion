@@ -7,7 +7,7 @@ Proyecto académico de tienda boutique: React 18/Vite/Tailwind en `frontend/`; E
 1. Inicia Docker Desktop y ejecuta `docker compose -f docker-compose.postgres.yml up -d`.
 2. Copia `backend/.env.example` a `backend/.env`, usa secretos locales y confirma `DATABASE_URL` PostgreSQL.
 3. En `backend/`: `npm ci`, `npx prisma generate`, `npx prisma migrate deploy`, `npm test`, `npm start`.
-4. En `frontend/`: configura `VITE_API_BASE=http://localhost:4000` y `VITE_CHECKOUT_MODE=demo`; ejecuta `npm ci`, `npm test`, `npm run dev`.
+4. En `frontend/`: ejecuta `npm ci`, `npm test`, `npm run dev`. El proxy de Vite envía `/api` y `/uploads` a `127.0.0.1:4000`; `VITE_API_BASE` solo es necesario en despliegues con orígenes separados.
 
 No ejecutar seed, `db push` productivo ni importar a RDS sin autorización/respaldo. Nunca publicar `.env`, bases, exports, tfstate, certificados o credenciales.
 
@@ -29,4 +29,4 @@ terraform: terraform fmt -check -recursive; terraform init -backend=false; terra
 
 La guía principal está en [DEPLOYMENT.md](DEPLOYMENT.md); auditoría, rollback, seguridad y costos están en `docs/`.
 
-El perfil completo, su migración por túnel SSM, despliegue en dos fases y rollback se documentan en `docs/aws-full-deployment.md`; el costo detallado está en `docs/aws-full-cost-estimate.md`.
+El perfil recomendado de una instancia y su runbook están en `docs/aws-full-budget-lightsail.md`. El diseño administrado anterior se conserva en `docs/aws-full-deployment.md` únicamente como alternativa histórica no aplicada.

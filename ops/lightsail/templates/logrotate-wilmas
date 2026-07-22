@@ -1,0 +1,26 @@
+/opt/wilmas-fashion/logs/backend/backend.log /opt/wilmas-fashion/logs/backend/backend-error.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su wilmas wilmas
+    create 0640 wilmas wilmas
+}
+
+/opt/wilmas-fashion/logs/nginx/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    su root adm
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        test ! -r /run/nginx.pid || kill -USR1 "$(cat /run/nginx.pid)"
+    endscript
+}
