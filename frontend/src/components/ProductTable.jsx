@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import ProductModal from './ProductModal'
@@ -64,9 +64,10 @@ export default function ProductTable({ onChanged }) {
   const [saleQuantity, setSaleQuantity] = useState('1')
   const [saleError, setSaleError] = useState('')
   const [selling, setSelling] = useState(false)
-  const role = localStorage.getItem('role') || 'CUSTOMER'
-  const canManage = role === 'ADMIN'
-  const canSell = Boolean(localStorage.getItem('token')) && ['ADMIN', 'SELLER'].includes(role)
+  const role = localStorage.getItem('role') || 'USER'
+  const canManage = ['USER', 'ADMIN'].includes(role)
+  const canDelete = role === 'ADMIN'
+  const canSell = role === 'ADMIN'
 
   useEffect(() => {
     loadProducts('')
@@ -258,6 +259,7 @@ export default function ProductTable({ onChanged }) {
                 product={product}
                 canManage={canManage}
                 canSell={canSell}
+                canDelete={canDelete}
                 onSell={openSale}
                 onEdit={openEdit}
                 onDelete={requestDelete}
@@ -283,6 +285,7 @@ export default function ProductTable({ onChanged }) {
                     product={product}
                     canManage={canManage}
                     canSell={canSell}
+                    canDelete={canDelete}
                     onSell={openSale}
                     onEdit={openEdit}
                     onDelete={requestDelete}
@@ -323,7 +326,7 @@ export default function ProductTable({ onChanged }) {
   )
 }
 
-function ProductRow({ product, canManage, canSell, onSell, onEdit, onDelete }) {
+function ProductRow({ product, canManage, canDelete, canSell, onSell, onEdit, onDelete }) {
   const sizes = parseSizes(product.sizes ?? product.size)
   return (
     <tr className="transition hover:bg-slate-50/80">
@@ -347,14 +350,14 @@ function ProductRow({ product, canManage, canSell, onSell, onEdit, onDelete }) {
         <div className="flex justify-end gap-2">
           {canSell && Number(product.stock) > 0 && <ActionButton onClick={() => onSell(product)} label={`Registrar venta de ${product.name}`}>Vender</ActionButton>}
           {canManage && <ActionButton onClick={() => onEdit(product)} label={`Editar ${product.name}`}>Editar</ActionButton>}
-          {canManage && <ActionButton danger onClick={() => onDelete(product)} label={`Eliminar ${product.name}`}>Eliminar</ActionButton>}
+          {canDelete && <ActionButton danger onClick={() => onDelete(product)} label={`Eliminar ${product.name}`}>Eliminar</ActionButton>}
         </div>
       </td>
     </tr>
   )
 }
 
-function ProductCard({ product, canManage, canSell, onSell, onEdit, onDelete }) {
+function ProductCard({ product, canManage, canDelete, canSell, onSell, onEdit, onDelete }) {
   const sizes = parseSizes(product.sizes ?? product.size)
   return (
     <article className="rounded-2xl border border-slate-200 p-4">
@@ -375,7 +378,7 @@ function ProductCard({ product, canManage, canSell, onSell, onEdit, onDelete }) 
         <div className="flex flex-wrap justify-end gap-2">
           {canSell && Number(product.stock) > 0 && <ActionButton onClick={() => onSell(product)} label={`Registrar venta de ${product.name}`}>Vender</ActionButton>}
           {canManage && <ActionButton onClick={() => onEdit(product)} label={`Editar ${product.name}`}>Editar</ActionButton>}
-          {canManage && <ActionButton danger onClick={() => onDelete(product)} label={`Eliminar ${product.name}`}>Eliminar</ActionButton>}
+          {canDelete && <ActionButton danger onClick={() => onDelete(product)} label={`Eliminar ${product.name}`}>Eliminar</ActionButton>}
         </div>
       </div>
     </article>

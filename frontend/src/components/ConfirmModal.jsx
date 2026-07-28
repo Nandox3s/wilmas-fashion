@@ -1,4 +1,3 @@
-import React from 'react'
 import Modal from './Modal'
 
 export default function ConfirmModal({ open, onClose, onConfirm, title, description, confirmLabel = 'Confirmar', busy = false }) {

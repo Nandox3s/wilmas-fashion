@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useCart } from '../context/CartContext'
 import { formatCurrency, parseSizes } from '../utils/cart'

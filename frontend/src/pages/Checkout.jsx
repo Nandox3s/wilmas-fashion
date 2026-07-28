@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import CartSummary from '../components/CartSummary'
@@ -7,12 +7,21 @@ import { useCart } from '../context/CartContext'
 import { getProductImageUrl } from '../data/products'
 import { validateCheckout } from '../utils/checkout'
 import { formatCurrency } from '../utils/cart'
+import { confirmPayment, createOrder, createPayment, preparePayphonePayment } from '../services/orderService'
 
 const initialForm = {
   firstName: '',
   lastName: '',
   email: '',
   phone: '',
+  identificationNumber: '',
+  billingIdentificationType: 'CEDULA',
+  billingIdentificationNumber: '',
+  billingName: '',
+  billingEmail: '',
+  billingPhone: '',
+  billingAddress: '',
+  billingSameAsShipping: true,
   address: '',
   city: '',
   province: '',
@@ -33,14 +42,14 @@ function OrderConfirmation({ order }) {
           <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#d4af37] text-[#24131b] shadow-[0_10px_30px_rgba(212,175,55,.25)]">
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2"><path d="m5 12 4 4L19 6"/></svg>
           </span>
-          <p className="mt-6 text-xs font-bold uppercase tracking-[0.25em] text-[#e8c978]">Demostración completada</p>
+          <p className="mt-6 text-xs font-bold uppercase tracking-[0.25em] text-[#e8c978]">{order.demo ? 'Demostración completada' : `Pago ${order.paymentStatus}`}</p>
           <h1 className="mt-3 font-serif text-4xl font-semibold sm:text-5xl">Tu experiencia de compra finalizó</h1>
-          <p className="mx-auto mt-4 max-w-xl leading-7 text-white/[0.72]">No se realizó ningún cargo bancario ni se registró un pedido real en el backend.</p>
+          <p className="mx-auto mt-4 max-w-xl leading-7 text-white/[0.72]">{order.demo ? 'No se realizó ningún cargo bancario ni se registró un pedido real en el backend.' : 'Se creó un pedido y se procesó exclusivamente con el proveedor mock configurado. No hubo un cobro real.'}</p>
         </div>
         <div className="px-5 py-8 sm:px-10">
           <dl className="mx-auto grid max-w-xl gap-4 text-left sm:grid-cols-2">
             <div className="rounded-2xl bg-[#f8f2ee] p-4">
-              <dt className="text-xs font-bold uppercase tracking-[0.15em] text-[#806e75]">Referencia demo</dt>
+              <dt className="text-xs font-bold uppercase tracking-[0.15em] text-[#806e75]">Referencia {order.demo ? 'demo' : 'del pedido'}</dt>
               <dd className="mt-2 font-bold text-[#3b2530]">{order.reference}</dd>
             </div>
             <div className="rounded-2xl bg-[#f8f2ee] p-4">
@@ -48,7 +57,7 @@ function OrderConfirmation({ order }) {
               <dd className="mt-2 font-bold text-[#4f102b]">{formatCurrency(order.total)}</dd>
             </div>
           </dl>
-          <p className="mt-6 text-sm leading-6 text-[#705d65]">La información del formulario y de la tarjeta se descartó. El carrito se vació únicamente después de completar correctamente la simulación.</p>
+          <p className="mt-6 text-sm leading-6 text-[#705d65]">Los datos de tarjeta se descartaron y nunca se enviaron al backend. El carrito se vació únicamente después de una confirmación aprobada.</p>
           <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
             <Link to="/catalog" className="button-primary">Seguir explorando</Link>
             <Link to="/" className="button-secondary">Volver al inicio</Link>
@@ -65,6 +74,7 @@ export default function Checkout() {
   const [touched, setTouched] = useState({})
   const [processing, setProcessing] = useState(false)
   const [order, setOrder] = useState(null)
+  const checkoutMode = import.meta.env.VITE_CHECKOUT_MODE || 'demo'
 
   const deliveryOptions = useMemo(() => [
     {
@@ -102,14 +112,54 @@ export default function Checkout() {
 
     setProcessing(true)
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 900))
-      const reference = `WF-DEMO-${Date.now().toString().slice(-7)}`
-      const total = pricing.subtotal + shipping
-      setOrder({ reference, total })
-      clearCart()
-      toast.success('Demostración completada correctamente')
-    } catch {
-      toast.error('No se pudo completar la demostración. Inténtalo de nuevo.')
+      if (checkoutMode === 'demo') {
+        await new Promise((resolve) => window.setTimeout(resolve, 500))
+        setOrder({ reference: `WF-DEMO-${Date.now().toString().slice(-7)}`, total: pricing.subtotal + shipping, demo: true })
+        clearCart()
+        toast.success('Demostración completada correctamente')
+      } else {
+        if (!window.localStorage.getItem('token')) throw new Error('Inicia sesión para crear un pedido mock o sandbox.')
+        if (items.some((item) => !Number.isInteger(Number(item.apiId)))) throw new Error('Algunos productos solo existen en el catálogo local y aún no se pueden reservar.')
+        const created = await createOrder({
+          customerName: `${form.firstName} ${form.lastName}`.trim(), customerEmail: form.email,
+          identificationType: form.billingIdentificationType,
+          identificationNumber: form.billingIdentificationNumber || form.identificationNumber,
+          address: form.billingSameAsShipping
+            ? `${form.address}${form.reference ? `, ${form.reference}` : ''}`
+            : form.billingAddress,
+          city: form.city,
+          phone: form.billingPhone || form.phone,
+          billingProfile: {
+            legalName: form.billingName || `${form.firstName} ${form.lastName}`.trim(),
+            billingEmail: form.billingEmail || form.email,
+            billingAddress: form.billingSameAsShipping
+              ? `${form.address}${form.reference ? `, ${form.reference}` : ''}`
+              : form.billingAddress,
+          },
+          items: items.map((item) => ({ productId: item.apiId, quantity: item.quantity, size: item.size, color: item.color })),
+        })
+        if (form.paymentMethod === 'payphone') {
+          const payphone = await preparePayphonePayment({ orderId: created.id })
+          // If provider returns a redirect URL, send the user there
+          if (payphone?.payphone?.redirectUrl) {
+            window.location.href = payphone.payphone.redirectUrl
+            return
+          }
+          // Fallback: try to create a generic payment and confirm
+          const payment = await createPayment({ orderReference: created.reference, idempotencyKey: `${created.reference}-${crypto.randomUUID()}`, scenario: 'approved' })
+          const confirmed = await confirmPayment({ paymentId: payment.id, transactionId: payment.providerTransactionId, scenario: 'approved' })
+          if (confirmed.status === 'APPROVED') clearCart()
+          setOrder({ reference: created.reference, total: created.total, demo: false, paymentStatus: confirmed.status })
+        } else {
+          const payment = await createPayment({ orderReference: created.reference, idempotencyKey: `${created.reference}-${crypto.randomUUID()}`, scenario: 'approved' })
+          const confirmed = await confirmPayment({ paymentId: payment.id, transactionId: payment.providerTransactionId, scenario: 'approved' })
+          if (confirmed.status === 'APPROVED') clearCart()
+          setOrder({ reference: created.reference, total: created.total, demo: false, paymentStatus: confirmed.status })
+        }
+        toast.success(confirmed.status === 'APPROVED' ? 'Pago mock aprobado' : 'El pago no fue aprobado')
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.error || error.message || 'No se pudo completar el flujo.')
     } finally {
       setProcessing(false)
     }
@@ -140,8 +190,8 @@ export default function Checkout() {
         </nav>
         <div className="mt-5">
           <p className="eyebrow">Último paso</p>
-          <h1 className="mt-3 font-serif text-4xl font-semibold text-[#28161e] sm:text-6xl">Completa tu pedido demo</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-[#705d65] sm:text-base">Revisa cada dato con calma. Este flujo demuestra la experiencia de compra, pero no procesa dinero ni crea una orden real.</p>
+          <h1 className="mt-3 font-serif text-4xl font-semibold text-[#28161e] sm:text-6xl">Completa tu pedido {checkoutMode}</h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-[#705d65] sm:text-base">Modo {checkoutMode}: {checkoutMode === 'demo' ? 'no procesa dinero ni crea una orden en el backend.' : 'crea un pedido y usa el proveedor configurado; los datos de tarjeta nunca se envían a nuestra API.'}</p>
         </div>
 
         <form id="checkout-form" onSubmit={handleSubmit} noValidate className="mt-8 grid items-start gap-6 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_410px]">
@@ -158,7 +208,7 @@ export default function Checkout() {
               pricing={pricing}
               shipping={shipping}
               formId="checkout-form"
-              ctaLabel="Confirmar pedido demo"
+              ctaLabel={`Confirmar pedido ${checkoutMode}`}
               disabled={!isValid}
               processing={processing}
             >
