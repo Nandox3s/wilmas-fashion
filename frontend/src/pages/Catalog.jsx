@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
 import ProductOptionsModal from '../components/ProductOptionsModal'

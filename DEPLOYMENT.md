@@ -1,159 +1,28 @@
-# Wilmas Fashion - Guía de Despliegue
+# Despliegue de Wilmas Fashion
 
-## Pasos para poner en producción con GitHub
+## Estado
 
-### 1️⃣ Inicializar el repositorio Git
+Render y Vercel siguen activos como rollback. AWS está preparado como código pero no aplicado. El plan dev reducido excluye RDS/Elastic Beanstalk porque exceden el presupuesto mensual de USD 5. No desplegar pagos/invoices reales: mock es el default.
 
-```bash
-cd "c:\Users\ASUS TUF A15\Downloads\Wilmas Fashion"
-git init
-git add .
-git commit -m "Initial commit: Wilmas Fashion e-commerce app"
-```
+## Backend
 
-### 2️⃣ Crear repositorio en GitHub
+Node 20 arranca con `npm start`; `app.js` no abre puerto y `server.js` maneja SIGINT/SIGTERM. Ejecutar `npm run migrate:deploy` una sola vez como paso separado. Variables provienen de Secrets Manager/entorno; no ejecutar `db push` ni seed. Validar `/api/ping` y logs antes de tráfico.
 
-1. Ve a [github.com/new](https://github.com/new)
-2. Nombre: `wilmas-fashion` (o tu preferencia)
-3. NO inicialices con README (ya tiene contenido)
-4. Click **Create repository**
+Elastic Beanstalk está parametrizado en Terraform y deshabilitado en dev. SingleInstance reduce costo, pero HTTPS productivo requiere una decisión adicional documentada en `docs/backend-deployment.md` y `docs/domain-and-https.md`.
 
-### 3️⃣ Conectar y hacer push
+## Frontend
 
-```bash
-git remote add origin https://github.com/TU_USUARIO/wilmas-fashion.git
-git branch -M main
-git push -u origin main
-```
+`amplify.yml` prueba y compila `frontend/dist`. Conectar manualmente `feature/aws-migration`, configurar `VITE_API_BASE`/`VITE_CHECKOUT_MODE` y rewrite SPA. No desconectar Vercel durante estabilización.
 
-### 4️⃣ Configurar secretos en GitHub para CI/CD
+## Secuencia segura
 
-1. Ve a tu repositorio en GitHub
-2. Ir a **Settings** → **Secrets and variables** → **Actions**
-3. Agrega estos secretos (click "New repository secret"):
+1. Leer `docs/backup-and-rollback.md` y crear/verificar respaldo.
+2. Validar Docker/PostgreSQL y ejecutar pruebas completas.
+3. Revisar `terraform plan`, costo y cero destrucciones.
+4. Obtener aprobación explícita antes de `terraform apply`.
+5. Obtener segunda aprobación antes de migración productiva/DNS.
+6. Seguir `docs/production-cutover.md` y mantener Render/Vercel.
 
-```
-DOCKER_USERNAME  → tu usuario de Docker Hub
-DOCKER_PASSWORD  → tu token de Docker Hub (desde account.docker.com)
-```
+Si GitHub Actions no inicia por facturación, distinguir job no iniciado de código fallido. No usar access keys permanentes; despliegue futuro usará GitHub OIDC y environment `production` con aprobación.
 
-Para Docker Hub:
-- Crea cuenta gratis en [hub.docker.com](https://hub.docker.com)
-- Ve a Account Settings → Security → Personal Access Tokens
-- Genera un nuevo token y cópialo
-
-### 5️⃣ Opción A: Desplegar con Railway (Recomendado para principiantes)
-
-Railway permite deploy automático desde GitHub sin configuración extra.
-
-1. Ve a [railway.app](https://railway.app)
-2. Sign in con GitHub
-3. New Project → Deploy from GitHub repo
-4. Selecciona `wilmas-fashion`
-5. Elige la rama `main`
-6. Configura variables de entorno:
-
-```
-BACKEND:
-- PORT=4000
-- NODE_ENV=production
-- JWT_SECRET=tu_secreto_seguro_aqui
-- DATABASE_URL=file:./prisma/dev.db
-
-FRONTEND:
-- VITE_API_BASE=https://tu-backend.railway.app
-```
-
-7. Deploy automático al hacer push a `main`
-
-### 5️⃣ Opción B: Desplegar con Render.com
-
-1. Ve a [render.com](https://render.com)
-2. Sign up con GitHub
-3. **New Web Service** desde el repo
-4. Configurar build y runtime
-5. Variables de entorno (como arriba)
-
-### 5️⃣ Opción C: Docker Hub + Vercel (Frontend) + Railway (Backend)
-
-**Backend (Docker Hub → Railway):**
-1. Imagen construida automáticamente por GitHub Actions
-2. Railway lo deploya desde Docker Hub
-
-**Frontend (Vercel):**
-1. Ve a [vercel.com](https://vercel.com)
-2. Import proyecto desde GitHub
-3. Framework: Vite (automático)
-4. Build: `npm run build`
-5. Output: `dist`
-
----
-
-## Flujo de despliegue automático
-
-Después de configurar todo:
-
-```bash
-# Hacer cambios locales
-git add .
-git commit -m "Fix: descripción del cambio"
-git push origin main
-```
-
-✅ Automáticamente:
-1. GitHub Actions buildea Docker image
-2. Pushea a Docker Hub
-3. Railway/Render detecta cambios
-4. Deploy automático
-
----
-
-## Verificar que esté funcionando
-
-Después de desplegar:
-
-```bash
-# Backend en vivo
-curl https://tu-backend.railway.app/api/ping
-
-# Frontend en vivo
-https://tu-frontend.vercel.app
-```
-
----
-
-## Variables de entorno en producción
-
-**Backend (.env en Railway/Render):**
-```
-DATABASE_URL="file:./prisma/dev.db"
-JWT_SECRET="secreto_muy_seguro_min_32_caracteres"
-PORT=4000
-NODE_ENV=production
-```
-
-**Frontend (en Vercel o Railway):**
-```
-VITE_API_BASE=https://tu-backend.railway.app
-```
-
----
-
-## Tips de seguridad
-
-- ✅ Cambia JWT_SECRET a algo único y largo (32+ caracteres)
-- ✅ Usa HTTPS en todos lados
-- ✅ No comitees `.env` (ya está en `.gitignore`)
-- ✅ Habilita 2FA en GitHub
-- ✅ Usa tokens en vez de contraseñas para Git
-
----
-
-## Monitoreo
-
-Una vez deployado, puedes usar:
-- Railway Dashboard (logs en vivo)
-- Vercel Analytics (para frontend)
-- GitHub Actions (histórico de builds)
-
-¿Necesitas ayuda con algún paso específico?
+Para la arquitectura completa Amplify → CloudFront → Elastic Beanstalk → RDS, seguir `docs/aws-full-deployment.md`. Ese runbook reemplaza cualquier intento de abrir RDS públicamente y mantiene migraciones fuera de los hooks concurrentes de EB.

@@ -1,0 +1,4 @@
+import { asyncHandler, HttpError } from '../utils/errors.js'
+export const listUsers = asyncHandler(async (req, res) => res.json(await req.services.prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, createdAt: true } })))
+export const changeRole = asyncHandler(async (req, res) => { if (!['USER', 'ADMIN'].includes(req.body.role)) throw new HttpError(400, 'Role must be USER or ADMIN'); res.json(await req.services.prisma.user.update({ where: { id: Number(req.params.id) }, data: { role: req.body.role }, select: { id: true, name: true, email: true, role: true } })) })
+export const removeUser = asyncHandler(async (req, res) => { if (Number(req.params.id) === req.user.id) throw new HttpError(409, 'Administrators cannot delete their own active account'); await req.services.prisma.user.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }) })

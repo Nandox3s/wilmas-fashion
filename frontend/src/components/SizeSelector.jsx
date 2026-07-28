@@ -1,4 +1,4 @@
-import React, { useId } from 'react'
+import { useId } from 'react'
 
 export default function SizeSelector({ sizes, value, onChange, error }) {
   const labelId = useId()

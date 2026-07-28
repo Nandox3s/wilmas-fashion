@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 const navClass = ({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${isActive ? 'bg-white text-[#5B0E2D] shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white'}`
@@ -7,7 +7,7 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const role = localStorage.getItem('role') || 'CUSTOMER'
+  const role = localStorage.getItem('role') || 'USER'
 
   useEffect(() => setOpen(false), [location.pathname, location.hash])
 
@@ -29,6 +29,7 @@ export default function Sidebar() {
     localStorage.removeItem('token')
     localStorage.removeItem('role')
     localStorage.removeItem('user')
+    localStorage.removeItem('wf_user')
     navigate('/login')
   }
 
@@ -90,7 +91,7 @@ export default function Sidebar() {
 
         <div className="mt-auto rounded-2xl border border-white/10 bg-white/5 p-3">
           <p className="px-1 text-xs font-semibold uppercase tracking-wider text-white/45">Sesión</p>
-          <p className="mt-1 px-1 text-sm font-semibold text-white">{role === 'ADMIN' ? 'Administrador' : role === 'SELLER' ? 'Vendedor' : 'Usuario'}</p>
+          <p className="mt-1 px-1 text-sm font-semibold text-white">{role === 'ADMIN' ? 'Jefe o Administrador' : 'Usuario'}</p>
           <button onClick={logout} className="mt-3 w-full rounded-xl border border-white/15 px-3 py-2.5 text-left text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]">
             Cerrar sesión
           </button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -115,7 +115,7 @@ export default function Admin() {
     setUpdatingRoleId(userId)
     setUsersError('')
     try {
-      const response = await axios.put(`/api/users/${userId}/role`, { role: nextRole }, { headers: authHeaders() })
+      const response = await axios.patch(`/api/users/${userId}/role`, { role: nextRole }, { headers: authHeaders() })
       setUsers((current) => current.map((user) => user.id === userId ? response.data : user))
       toast.success('Rol actualizado')
     } catch (requestError) {
@@ -287,8 +287,7 @@ function RoleSelect({ user, busy, locked = false, onRoleChange }) {
     <>
       <label htmlFor={`role-${user.id}`} className="sr-only">Rol de {user.name}</label>
       <select id={`role-${user.id}`} value={user.role} disabled={busy || locked} title={locked ? 'No puedes cambiar tu propio rol' : undefined} onChange={(event) => onRoleChange(user.id, event.target.value)} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-[#5B0E2D] focus:ring-2 focus:ring-[#5B0E2D]/10 disabled:cursor-not-allowed disabled:opacity-60">
-        <option value="CUSTOMER">Cliente</option>
-        <option value="SELLER">Vendedor</option>
+        <option value="USER">Usuario</option>
         <option value="ADMIN">Administrador</option>
       </select>
     </>

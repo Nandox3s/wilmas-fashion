@@ -1,0 +1,13 @@
+aws_region            = "us-east-1"
+environment           = "dev"
+enable_networking     = false
+enable_rds            = false
+enable_backend        = false
+enable_storage        = true
+enable_queues         = false
+enable_invoice_worker = false
+enable_monitoring     = false
+enable_ses_identity   = false
+enable_budget         = false
+monthly_budget_usd    = 5
+frontend_origins      = ["http://localhost:5173", "https://wilmas-fashion.vercel.app"]

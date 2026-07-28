@@ -1,47 +1,114 @@
-name: CI Build
+name: Validate application and infrastructure
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
+  push:
+    branches: [main, feature/aws-migration]
+
+permissions:
+  contents: read
 
 jobs:
-  validate:
+  backend:
     runs-on: ubuntu-latest
-
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wilmas
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: wilmas_fashion_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U wilmas -d wilmas_fashion_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test-only-ci-secret-that-is-at-least-32-characters
+      DATABASE_URL: postgresql://wilmas:test-only-password@localhost:5432/wilmas_fashion_test?schema=public
+      DATABASE_URL_TEST: postgresql://wilmas:test-only-password@localhost:5432/wilmas_fashion_test?schema=public
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js for backend
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
+      - working-directory: backend
+        run: npm ci
+      - working-directory: backend
+        run: npx prisma generate && npx prisma validate && npx prisma migrate deploy
+      - working-directory: backend
+        run: npm test
+      - working-directory: backend
+        run: npm audit --omit=dev
+      - working-directory: backend
+        shell: bash
+        run: find src scripts -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm install
-
-      - name: Generate Prisma Client
-        working-directory: backend
-        run: npx prisma generate
-
-      - name: Set up Node.js for frontend
-        uses: actions/setup-node@v4
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
+      - working-directory: frontend
         run: npm ci
+      - working-directory: frontend
+        run: npm test && npm run build && npm run build -- --mode lightsail
+      - working-directory: frontend
+        run: npm audit --omit=dev
+      - shell: bash
+        run: |
+          if grep -R -E 'wilmas-fashion\.onrender\.com|localhost|127\.0\.0\.1:4000|postgres(ql)?://' frontend/dist; then
+            echo 'Lightsail dist contains localhost, a forbidden deployment origin, or a database URL.' >&2
+            exit 1
+          fi
+      - shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path scripts/build-lightsail-artifact.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count) { throw ($errors | Out-String) }
+          ./scripts/build-lightsail-artifact.ps1 -OutputPath artifacts/ci-lightsail.tar.gz
 
-      - name: Build frontend
-        working-directory: frontend
-        run: npm run build
+  operations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: bash -n ops/lightsail/*.sh ops/lightsail/templates/reload-nginx-after-renewal
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+      - working-directory: infra/terraform
+        run: terraform init -backend=false
+      - working-directory: infra/terraform
+        run: terraform validate
+      - working-directory: infra/terraform/environments/aws-full-budget-lightsail
+        run: terraform init -backend=false
+      - working-directory: infra/terraform/environments/aws-full-budget-lightsail
+        run: terraform validate
+
+  deploy-placeholder:
+    if: false
+    needs: [backend, frontend, operations, terraform]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - run: echo "Deployment remains disabled until an approved OIDC role and production approval exist."
