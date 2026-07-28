@@ -13,13 +13,26 @@ const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Admin = lazy(() => import('./pages/Admin'))
+const AdminOrderDetail = lazy(() => import('./pages/AdminOrderDetail'))
 const MyOrders = lazy(() => import('./pages/MyOrders'))
 const OrderDetail = lazy(() => import('./pages/OrderDetail'))
 const PaymentResult = lazy(() => import('./pages/PaymentResult'))
 
+// Mock checkout only available outside production builds
+const isMockEnabled =
+  import.meta.env.MODE !== 'production' &&
+  (import.meta.env.VITE_CHECKOUT_MODE === 'mock' ||
+    import.meta.env.VITE_CHECKOUT_MODE === 'sandbox' ||
+    import.meta.env.DEV)
+
+const MockPayphoneCheckout = isMockEnabled
+  ? lazy(() => import('./pages/MockPayphoneCheckout'))
+  : null
+
 function hasValidSession() {
   return Boolean(sessionPayload())
 }
+
 function PrivateRoute({ children, allowedRoles }) {
   const location = useLocation()
   if (!hasValidSession()) return <Navigate to="/login" state={{ from: location }} replace />
@@ -65,6 +78,9 @@ export default function App() {
             <Route path="cart" element={<Cart />} />
             <Route path="checkout" element={<Checkout />} />
             <Route path="payment-result" element={<PaymentResult />} />
+            {MockPayphoneCheckout && (
+              <Route path="/mock-payphone/checkout" element={<MockPayphoneCheckout />} />
+            )}
             <Route path="orders" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><MyOrders /></PrivateRoute>} />
             <Route path="orders/:reference" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><OrderDetail /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
@@ -74,6 +90,7 @@ export default function App() {
           <Route path="register" element={<Register />} />
           <Route path="dashboard/*" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><Dashboard /></PrivateRoute>} />
           <Route path="admin" element={<PrivateRoute allowedRoles={['ADMIN']}><Admin /></PrivateRoute>} />
+          <Route path="admin/orders/:orderId" element={<PrivateRoute allowedRoles={['ADMIN']}><AdminOrderDetail /></PrivateRoute>} />
         </Routes>
       </Suspense>
     </BrowserRouter>

@@ -1,5 +1,20 @@
 # Seguridad
 
-Helmet, CORS allowlist, JSON 1 MB, rate limit de auth, validación central, JWT con usuario consultado en base y roles cerrados. Registro ignora rol; USER recibe 403 al eliminar; respuestas no incluyen hash ni stack. npm audit productivo quedó en cero vulnerabilidades tras actualizar Express 4.x.
+## Controles activos
+- Helmet y CORS con allowlist.
+- JWT + RBAC con validacion de usuario en base de datos.
+- Rate limit en autenticacion.
+- Validaciones de payload en backend.
+- Idempotencia de pagos por `idempotencyKey` y eventos de proveedor.
+- Transacciones Prisma para operaciones criticas.
+- Historial de notificaciones y eventos de pago/factura/envio.
 
-Pendientes previos a producción: rotación/almacenamiento de JWT secret, validación magic bytes S3, CSRF/state para redirects PayPhone, firma/autorización formal de webhook, política de contraseñas/recuperación, escaneo de imágenes y pruebas PostgreSQL reales.
+## Reglas de datos sensibles
+- No almacenar PAN completo, CVV, expiracion completa ni tokens de tarjeta.
+- No exponer `PAYPHONE_TOKEN`, `DATIL_API_KEY` o secretos en frontend.
+- Sanitizar respuestas de proveedor antes de persistir/loggear.
+
+## Recomendaciones operativas
+- Mantener `mock` en desarrollo y CI.
+- Activar proveedores reales solo por variables de entorno en backend.
+- Revisar transiciones de estado y errores `409` antes de reintentos manuales.

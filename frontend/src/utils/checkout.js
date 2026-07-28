@@ -47,6 +47,7 @@ export function validateCheckout(form) {
     ['city', 'Escribe tu ciudad.', 2],
     ['province', 'Escribe tu provincia o departamento.', 2],
     ['identificationNumber', 'Escribe tu identificación.', 5],
+    ['billingIdentificationNumber', 'Escribe la identificación para facturación.', 5],
   ]
 
   requiredText.forEach(([field, message, minLength]) => {
@@ -55,6 +56,18 @@ export function validateCheckout(form) {
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(form.email || '').trim())) {
     errors.email = 'Escribe un correo válido.'
+  }
+
+  if (form.billingEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(form.billingEmail || '').trim())) {
+    errors.billingEmail = 'Escribe un correo de facturación válido.'
+  }
+
+  if (String(form.billingName || '').trim().length < 2) {
+    errors.billingName = 'Escribe nombres o razón social de facturación.'
+  }
+
+  if (!form.billingSameAsShipping && String(form.billingAddress || '').trim().length < 5) {
+    errors.billingAddress = 'Escribe una dirección de facturación válida.'
   }
 
   const phone = onlyDigits(form.phone)

@@ -37,7 +37,7 @@ function SectionHeading({ step, title, copy }) {
 
 export default function CheckoutForm({ form, errors, touched, onChange, deliveryOptions }) {
   const visibleError = (field) => touched[field] ? errors[field] : ''
-  const update = (field, value) => onChange(field, value)
+  const update = (field, value, markTouched = false) => onChange(field, value, markTouched)
   const cardDigits = onlyDigits(form.cardNumber).padEnd(16, '•')
   const cardDisplay = cardDigits.match(/.{1,4}/g)?.join(' ') || '•••• •••• •••• ••••'
 
@@ -55,7 +55,37 @@ export default function CheckoutForm({ form, errors, touched, onChange, delivery
       </section>
 
       <section className="checkout-section">
-        <SectionHeading step="2" title="Dirección de entrega" copy="Completa los datos como te gustaría verlos en la guía." />
+        <SectionHeading step="2" title="Datos de facturación" copy="Estos datos se usarán para emitir factura electrónica cuando el proveedor esté activo." />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="billingIdentificationType" className="field-label">Tipo de identificación</label>
+            <select
+              id="billingIdentificationType"
+              value={form.billingIdentificationType}
+              onChange={(event) => update('billingIdentificationType', event.target.value)}
+              className="input-field mt-2"
+            >
+              <option value="CEDULA">Cédula</option>
+              <option value="RUC">RUC</option>
+              <option value="PASSPORT">Pasaporte</option>
+            </select>
+          </div>
+          <Field id="billingIdentificationNumber" label="Número de identificación" value={form.billingIdentificationNumber} onChange={(event) => update('billingIdentificationNumber', event.target.value)} onBlur={() => update('billingIdentificationNumber', form.billingIdentificationNumber, true)} error={visibleError('billingIdentificationNumber')} />
+          <Field id="billingName" label="Nombres / Razón social" value={form.billingName} onChange={(event) => update('billingName', event.target.value)} onBlur={() => update('billingName', form.billingName, true)} error={visibleError('billingName')} className="sm:col-span-2" />
+          <Field id="billingEmail" type="email" label="Correo de facturación" value={form.billingEmail} onChange={(event) => update('billingEmail', event.target.value)} onBlur={() => update('billingEmail', form.billingEmail, true)} error={visibleError('billingEmail')} />
+          <Field id="billingPhone" type="tel" label="Teléfono de facturación" value={form.billingPhone} onChange={(event) => update('billingPhone', event.target.value)} onBlur={() => update('billingPhone', form.billingPhone, true)} error={visibleError('billingPhone')} />
+          <label className="sm:col-span-2 flex items-center gap-2 text-sm text-[#5f4d54]">
+            <input type="checkbox" checked={Boolean(form.billingSameAsShipping)} onChange={(event) => update('billingSameAsShipping', event.target.checked)} />
+            La dirección de facturación es igual a la de envío
+          </label>
+          {!form.billingSameAsShipping && (
+            <Field id="billingAddress" label="Dirección de facturación" value={form.billingAddress} onChange={(event) => update('billingAddress', event.target.value)} onBlur={() => update('billingAddress', form.billingAddress, true)} error={visibleError('billingAddress')} className="sm:col-span-2" />
+          )}
+        </div>
+      </section>
+
+      <section className="checkout-section">
+        <SectionHeading step="3" title="Dirección de entrega" copy="Completa los datos como te gustaría verlos en la guía." />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="address" label="Dirección" value={form.address} onChange={(event) => update('address', event.target.value)} onBlur={() => update('address', form.address, true)} error={visibleError('address')} autoComplete="street-address" className="sm:col-span-2" placeholder="Calle, carrera, número y complemento" />
           <Field id="city" label="Ciudad" value={form.city} onChange={(event) => update('city', event.target.value)} onBlur={() => update('city', form.city, true)} error={visibleError('city')} autoComplete="address-level2" />
@@ -84,7 +114,7 @@ export default function CheckoutForm({ form, errors, touched, onChange, delivery
       </section>
 
       <section className="checkout-section">
-        <SectionHeading step="3" title="Método de entrega" />
+        <SectionHeading step="4" title="Método de entrega" />
         <fieldset aria-describedby={visibleError('deliveryMethod') ? 'delivery-error' : undefined}>
           <legend className="sr-only">Elige un método de entrega</legend>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -106,17 +136,17 @@ export default function CheckoutForm({ form, errors, touched, onChange, delivery
       </section>
 
       <section className="checkout-section">
-        <SectionHeading step="4" title="Método de pago" copy="Este proyecto no tiene pasarela bancaria. Ninguna opción genera un cobro real." />
+        <SectionHeading step="5" title="Método de pago" copy="Este proyecto no tiene pasarela bancaria. Ninguna opción genera un cobro real." />
         <div className="rounded-2xl border border-[#a86c27]/25 bg-[#fff8e8] p-4 text-sm leading-6 text-[#70501f]" role="note">
           <strong>Modo demostración:</strong> los datos solo se validan en memoria y se descartan al terminar. No se envían al backend ni se guardan en localStorage.
         </div>
         <fieldset className="mt-4" aria-describedby={visibleError('paymentMethod') ? 'payment-error' : undefined}>
           <legend className="sr-only">Elige un método de pago</legend>
           <div className="grid gap-3 sm:grid-cols-2">
-            {[
+            {([
               { id: 'card', name: 'Tarjeta de demostración', copy: 'Validación visual, sin cargo bancario.' },
               { id: 'delivery', name: 'Pago al recibir', copy: 'Opción ilustrativa para el flujo demo.' },
-            ].map((option) => (
+            ].concat(import.meta.env.VITE_CHECKOUT_MODE !== 'demo' ? [{ id: 'payphone', name: 'Pago con PayPhone', copy: 'Redirigirás a la cajita segura de PayPhone.' }] : [])).map((option) => (
               <label key={option.id} className={`cursor-pointer rounded-2xl border p-4 transition ${form.paymentMethod === option.id ? 'border-[#6d1738] bg-[#fbf3f6] ring-2 ring-[#6d1738]/10' : 'border-[#39232c]/[0.12] bg-white hover:border-[#6d1738]/35'}`}>
                 <input type="radio" name="paymentMethod" value={option.id} checked={form.paymentMethod === option.id} onChange={() => update('paymentMethod', option.id, true)} className="sr-only" />
                 <span className="block font-bold text-[#3b2530]">{option.name}</span>
