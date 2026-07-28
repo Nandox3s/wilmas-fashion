@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
+!frontend/.env.lightsail
 .env.local
 .DS_Store
 frontend/node_modules/
@@ -9,6 +12,7 @@ prisma/dev.db
 coverage/
 tmp/
 backend/tmp/
+backend/uploads/
 backend/uploads/invoices/
 **/.terraform/
 *.tfstate
@@ -18,5 +22,13 @@ crash.*.log
 *.tfplan
 **/terraform.tfvars
 artifacts/
-backend/backups/
+backend/backups/*
+!backend/backups/.gitkeep
 backend/migration-exports/
+*.backup.db
+*.sqlite-backup
+*.pem
+*.p12
+*.pfx
+*.key
+infra/terraform/environments/aws-full-budget-lightsail/terraform.tfvars

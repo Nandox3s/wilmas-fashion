@@ -1,0 +1,22 @@
+[Unit]
+Description=Import and reconcile the validated Wilmas Fashion migration export
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=wilmas
+Group=wilmas
+WorkingDirectory=/opt/wilmas-fashion/backend
+EnvironmentFile=/etc/wilmas-fashion/backend.env
+ExecStart=/usr/bin/env MIGRATION_EXPORT=/opt/wilmas-fashion/backend/migration-exports/sqlite-export.json /usr/bin/node scripts/migration/validate-export.js
+ExecStart=/usr/bin/env CONFIRM_PRODUCTION_IMPORT=yes MIGRATION_EXPORT=/opt/wilmas-fashion/backend/migration-exports/sqlite-export.json MIGRATION_REPORT=/opt/wilmas-fashion/logs/backend/import-report.json /usr/bin/node scripts/migration/import-postgresql-data.js
+ExecStart=/usr/bin/env MIGRATION_EXPORT=/opt/wilmas-fashion/backend/migration-exports/sqlite-export.json /usr/bin/node scripts/migration/validate-import.js
+TimeoutStartSec=10min
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/opt/wilmas-fashion/logs/backend

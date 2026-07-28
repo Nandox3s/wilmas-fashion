@@ -1,0 +1,2 @@
+ops/lightsail/** text eol=lf
+infra/terraform/environments/aws-full-budget-lightsail/*.tf text eol=lf

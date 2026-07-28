@@ -1,0 +1,35 @@
+[Unit]
+Description=Wilmas Fashion backend
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=wilmas
+Group=wilmas
+WorkingDirectory=/opt/wilmas-fashion/backend
+EnvironmentFile=/etc/wilmas-fashion/backend.env
+ExecStart=/usr/bin/env HOST=127.0.0.1 TRUST_PROXY=1 UPLOADS_DIR=/opt/wilmas-fashion/uploads /usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ReadWritePaths=/opt/wilmas-fashion/uploads /opt/wilmas-fashion/logs/backend
+StandardOutput=append:/opt/wilmas-fashion/logs/backend/backend.log
+StandardError=append:/opt/wilmas-fashion/logs/backend/backend-error.log
+
+[Install]
+WantedBy=multi-user.target

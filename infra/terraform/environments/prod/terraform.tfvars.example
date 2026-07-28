@@ -1,0 +1,11 @@
+aws_region = "us-east-1"
+environment = "prod"
+enable_networking = true
+enable_rds = true
+enable_backend = true
+enable_storage = true
+enable_queues = true
+enable_ses_identity = true
+enable_budget = true
+budget_email = "<BUDGET_EMAIL>"
+ses_from_email = "<SES_FROM_EMAIL>"
