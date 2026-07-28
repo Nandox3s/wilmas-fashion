@@ -20,7 +20,7 @@ export class PayPhoneProvider extends PaymentProvider {
     const taxable = Math.round((Number(order.subtotal) - Number(order.discount)) * 100)
     const tax = Math.round(Number(order.tax) * 100); const service = Math.round(Number(order.shipping) * 100)
     const payload = await post('/button/Prepare', { amount: taxable + tax + service, amountWithoutTax: 0, amountWithTax: taxable, tax, service, tip: 0, clientTransactionId: order.reference, reference: order.reference, storeId, currency: order.currency, responseUrl: process.env.PAYPHONE_RESPONSE_URL, cancellationUrl: process.env.PAYPHONE_CANCELLATION_URL, timeZone: -5 })
-    return { provider: 'payphone', transactionId: payload.paymentId, clientTransactionId: order.reference, redirectUrl: payload.payWithCard || payload.payWithPayPhone }
+    return { provider: 'payphone', transactionId: String(payload.paymentId), clientTransactionId: order.reference, redirectUrl: payload.payWithCard || payload.payWithPayPhone }
   }
   async confirmPayment({ transactionId, clientTransactionId }) {
     const result = await post('/button/V2/Confirm', { id: Number(transactionId), clientTxId: clientTransactionId })

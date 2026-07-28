@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { env } from '../config/env.js'
 import { HttpError } from '../utils/errors.js'
 import { emailIsValid, integer, serializeMoney, text } from '../utils/validation.js'
+import { assertRequestedSize, normalizeProductSizes } from '../utils/normalizeProductSizes.js'
 
 const cents = (value) => Math.round((Number(value) + Number.EPSILON) * 100)
 const amount = (value) => (value / 100).toFixed(2)
@@ -30,16 +31,23 @@ export class OrderService {
     return serializeMoney(await this.prisma.$transaction(async (tx) => {
       const productIds = [...new Set([...requested.values()].map((line) => line.productId))]
       const products = await tx.product.findMany({ where: { id: { in: productIds } } })
+      for (const product of products) {
+        try {
+          product.sizes = normalizeProductSizes(product.sizes)
+        } catch (err) {
+          throw new HttpError(500, `Product ${product.id} has invalid sizes format`)
+        }
+      }
       if (products.length !== productIds.length) throw new HttpError(404, 'One or more products do not exist')
       let subtotalCents = 0; let discountCents = 0; let taxCents = 0
       const lines = []
       for (const product of products) {
         const productLines = [...requested.values()].filter((line) => line.productId === product.id)
         const totalQuantity = productLines.reduce((sum, line) => sum + line.quantity, 0)
-        if (productLines.some((line) => !Array.isArray(product.sizes) || !product.sizes.map(String).includes(line.size))) throw new HttpError(400, `Size is not available for SKU ${product.sku}`)
         const stock = await tx.product.updateMany({ where: { id: product.id, stock: { gte: totalQuantity } }, data: { stock: { decrement: totalQuantity } } })
         if (stock.count !== 1) throw new HttpError(409, `Insufficient stock for SKU ${product.sku}`)
         for (const request of productLines) {
+          request.size = assertRequestedSize(request.size, product.sizes, { sku: product.sku })
           const base = cents(product.price) * request.quantity
           const discount = product.onOffer ? Math.round(base * Number(product.discount) / 100) : 0
           const taxable = base - discount; const tax = Math.round(taxable * env.taxRate)
@@ -49,7 +57,28 @@ export class OrderService {
       }
       const shippingCents = subtotalCents - discountCents >= cents(env.freeShippingThreshold) ? 0 : cents(env.shippingAmount)
       const reservations = [...new Set(lines.map((line) => line.productId))].map((productId) => ({ productId, quantity: lines.filter((line) => line.productId === productId).reduce((sum, line) => sum + line.quantity, 0), expiresAt }))
-      return tx.order.create({ data: { reference: reference(), userId: user.id, ...customer, subtotal: amount(subtotalCents), discount: amount(discountCents), tax: amount(taxCents), shipping: amount(shippingCents), total: amount(subtotalCents - discountCents + taxCents + shippingCents), expiresAt, items: { create: lines }, reservations: { create: reservations } }, include: includeOrder })
+      const created = await tx.order.create({ data: { reference: reference(), userId: user.id, ...customer, subtotal: amount(subtotalCents), discount: amount(discountCents), tax: amount(taxCents), shipping: amount(shippingCents), total: amount(subtotalCents - discountCents + taxCents + shippingCents), expiresAt, items: { create: lines }, reservations: { create: reservations } }, include: includeOrder })
+
+      if (input.billingProfile && typeof input.billingProfile === 'object') {
+        const legalName = text(input.billingProfile.legalName, 'Billing legal name', 120)
+        const billingEmail = String(input.billingProfile.billingEmail || customerEmail).trim().toLowerCase()
+        if (emailIsValid(billingEmail)) {
+          await tx.billingProfile.create({
+            data: {
+              userId: user.id,
+              identificationType: customer.identificationType,
+              identificationNumber: customer.identificationNumber,
+              legalName,
+              billingEmail,
+              phone: String(input.billingProfile.phone || customer.phone || '').trim() || null,
+              billingAddress: text(input.billingProfile.billingAddress || customer.address, 'Billing address', 300),
+              isDefault: false,
+            },
+          })
+        }
+      }
+
+      return created
     }))
   }
   async byReference(referenceValue, user) {

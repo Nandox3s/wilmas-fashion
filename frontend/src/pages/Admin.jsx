@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Navbar from '../components/Navbar'
 import ProductModal from '../components/ProductModal'
+import { getAdminOrders } from '../services/orderService'
+import { formatCurrency } from '../utils/cart'
 
 function authHeaders() {
   const token = localStorage.getItem('token')
@@ -67,11 +69,14 @@ export default function Admin() {
   const currentUserId = getSessionUserId()
   const [products, setProducts] = useState([])
   const [users, setUsers] = useState([])
+  const [orders, setOrders] = useState([])
   const [productQuery, setProductQuery] = useState('')
   const [productsLoading, setProductsLoading] = useState(true)
   const [usersLoading, setUsersLoading] = useState(true)
+  const [ordersLoading, setOrdersLoading] = useState(true)
   const [productsError, setProductsError] = useState('')
   const [usersError, setUsersError] = useState('')
+  const [ordersError, setOrdersError] = useState('')
   const [showProductModal, setShowProductModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [updatingRoleId, setUpdatingRoleId] = useState(null)
@@ -83,6 +88,7 @@ export default function Admin() {
     if (role !== 'ADMIN') return
     loadProducts()
     loadUsers()
+    loadOrders()
   }, [role])
 
   async function loadProducts() {
@@ -108,6 +114,19 @@ export default function Admin() {
       setUsersError(requestError.response?.data?.error || 'No se pudieron cargar los usuarios.')
     } finally {
       setUsersLoading(false)
+    }
+  }
+
+  async function loadOrders() {
+    setOrdersLoading(true)
+    setOrdersError('')
+    try {
+      const data = await getAdminOrders()
+      setOrders(Array.isArray(data) ? data : [])
+    } catch (requestError) {
+      setOrdersError(requestError.response?.data?.error || 'No se pudieron cargar los pedidos.')
+    } finally {
+      setOrdersLoading(false)
     }
   }
 
@@ -186,8 +205,8 @@ export default function Admin() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#5B0E2D]">Administración</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Productos y usuarios</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">Gestiona el inventario y los permisos con los datos actuales de la API.</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Productos, usuarios y pedidos</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">Gestiona el inventario, permisos y pedidos con los datos actuales de la API.</p>
           </div>
           <button type="button" onClick={() => { setEditing(null); setShowProductModal(true) }} className="self-start rounded-xl bg-[#5B0E2D] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#74143b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B0E2D] focus-visible:ring-offset-2 sm:self-auto">Nuevo producto</button>
         </div>
@@ -255,6 +274,50 @@ export default function Admin() {
             )}
           </section>
         </div>
+
+        {/* Orders section */}
+        <section aria-labelledby="admin-orders-title" className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+            <div>
+              <h2 id="admin-orders-title" className="text-xl font-bold text-slate-950">Pedidos</h2>
+              <p className="mt-0.5 text-xs text-slate-500">{orders.length} pedidos</p>
+            </div>
+            <button type="button" onClick={loadOrders} disabled={ordersLoading} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B0E2D] disabled:opacity-50">Actualizar</button>
+          </div>
+          {ordersError && <ErrorBanner message={ordersError} onRetry={loadOrders} />}
+          {ordersLoading ? (
+            <LoadingRows label="Cargando pedidos" />
+          ) : orders.length === 0 ? (
+            <EmptyState title="No hay pedidos" detail="Los pedidos aparecerán aquí cuando se registren." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th scope="col" className="px-6 py-3">Referencia</th>
+                    <th scope="col" className="px-4 py-3">Estado</th>
+                    <th scope="col" className="px-4 py-3">Total</th>
+                    <th scope="col" className="px-4 py-3">Fecha</th>
+                    <th scope="col" className="px-6 py-3 text-right">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {orders.map((order) => (
+                    <tr key={order.id} className="hover:bg-slate-50/80">
+                      <td className="px-6 py-3 font-semibold text-slate-900">{order.reference}</td>
+                      <td className="px-4 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{order.status}</span></td>
+                      <td className="px-4 py-3">{formatCurrency(order.total)}</td>
+                      <td className="px-4 py-3 text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</td>
+                      <td className="px-6 py-3 text-right">
+                        <Link to={`/admin/orders/${order.reference}`} className="rounded-lg px-3 py-2 text-xs font-semibold text-[#5B0E2D] hover:bg-[#f4e8ed] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B0E2D]">Ver</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </main>
 
       {showProductModal && <ProductModal product={editing} onClose={closeProductModal} onSaved={productSaved} />}

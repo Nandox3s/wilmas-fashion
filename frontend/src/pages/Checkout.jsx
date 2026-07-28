@@ -7,7 +7,7 @@ import { useCart } from '../context/CartContext'
 import { getProductImageUrl } from '../data/products'
 import { validateCheckout } from '../utils/checkout'
 import { formatCurrency } from '../utils/cart'
-import { confirmPayment, createOrder, createPayment } from '../services/orderService'
+import { confirmPayment, createOrder, createPayment, preparePayphonePayment } from '../services/orderService'
 
 const initialForm = {
   firstName: '',
@@ -15,6 +15,13 @@ const initialForm = {
   email: '',
   phone: '',
   identificationNumber: '',
+  billingIdentificationType: 'CEDULA',
+  billingIdentificationNumber: '',
+  billingName: '',
+  billingEmail: '',
+  billingPhone: '',
+  billingAddress: '',
+  billingSameAsShipping: true,
   address: '',
   city: '',
   province: '',
@@ -115,14 +122,40 @@ export default function Checkout() {
         if (items.some((item) => !Number.isInteger(Number(item.apiId)))) throw new Error('Algunos productos solo existen en el catálogo local y aún no se pueden reservar.')
         const created = await createOrder({
           customerName: `${form.firstName} ${form.lastName}`.trim(), customerEmail: form.email,
-          identificationType: 'CEDULA', identificationNumber: form.identificationNumber,
-          address: `${form.address}${form.reference ? `, ${form.reference}` : ''}`, city: form.city, phone: form.phone,
+          identificationType: form.billingIdentificationType,
+          identificationNumber: form.billingIdentificationNumber || form.identificationNumber,
+          address: form.billingSameAsShipping
+            ? `${form.address}${form.reference ? `, ${form.reference}` : ''}`
+            : form.billingAddress,
+          city: form.city,
+          phone: form.billingPhone || form.phone,
+          billingProfile: {
+            legalName: form.billingName || `${form.firstName} ${form.lastName}`.trim(),
+            billingEmail: form.billingEmail || form.email,
+            billingAddress: form.billingSameAsShipping
+              ? `${form.address}${form.reference ? `, ${form.reference}` : ''}`
+              : form.billingAddress,
+          },
           items: items.map((item) => ({ productId: item.apiId, quantity: item.quantity, size: item.size, color: item.color })),
         })
-        const payment = await createPayment({ orderReference: created.reference, idempotencyKey: `${created.reference}-${crypto.randomUUID()}`, scenario: 'approved' })
-        const confirmed = await confirmPayment({ paymentId: payment.id, transactionId: payment.providerTransactionId, scenario: 'approved' })
-        if (confirmed.status === 'APPROVED') clearCart()
-        setOrder({ reference: created.reference, total: created.total, demo: false, paymentStatus: confirmed.status })
+        if (form.paymentMethod === 'payphone') {
+          const payphone = await preparePayphonePayment({ orderId: created.id })
+          // If provider returns a redirect URL, send the user there
+          if (payphone?.payphone?.redirectUrl) {
+            window.location.href = payphone.payphone.redirectUrl
+            return
+          }
+          // Fallback: try to create a generic payment and confirm
+          const payment = await createPayment({ orderReference: created.reference, idempotencyKey: `${created.reference}-${crypto.randomUUID()}`, scenario: 'approved' })
+          const confirmed = await confirmPayment({ paymentId: payment.id, transactionId: payment.providerTransactionId, scenario: 'approved' })
+          if (confirmed.status === 'APPROVED') clearCart()
+          setOrder({ reference: created.reference, total: created.total, demo: false, paymentStatus: confirmed.status })
+        } else {
+          const payment = await createPayment({ orderReference: created.reference, idempotencyKey: `${created.reference}-${crypto.randomUUID()}`, scenario: 'approved' })
+          const confirmed = await confirmPayment({ paymentId: payment.id, transactionId: payment.providerTransactionId, scenario: 'approved' })
+          if (confirmed.status === 'APPROVED') clearCart()
+          setOrder({ reference: created.reference, total: created.total, demo: false, paymentStatus: confirmed.status })
+        }
         toast.success(confirmed.status === 'APPROVED' ? 'Pago mock aprobado' : 'El pago no fue aprobado')
       }
     } catch (error) {

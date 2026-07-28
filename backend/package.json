@@ -8,9 +8,15 @@
     "seed": "node prisma/seed.js",
     "postinstall": "prisma generate",
     "test": "node scripts/test/run-tests.js",
+    "test:e2e:payphone": "node scripts/e2e-payphone.js",
+    "dev:list-invoices": "node scripts/dev/list-invoices.js",
+    "dev:enqueue-invoice-job": "node scripts/dev/enqueue-invoice-job.js",
+    "dev:show-jobs": "node scripts/dev/show-jobs.js",
+    "dev:insert-test-job": "node scripts/dev/insert-test-job.js",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:aws": "node scripts/deployment/migrate-rds.js",
-    "backup:create": "node scripts/backup/create-backup.js"
+    "backup:create": "node scripts/backup/create-backup.js",
+    "worker": "node src/workers/jobWorker.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",

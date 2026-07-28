@@ -14,6 +14,7 @@ import { invoiceRoutes } from './routes/invoiceRoutes.js'
 import { orderRoutes } from './routes/orderRoutes.js'
 import { paymentRoutes } from './routes/paymentRoutes.js'
 import { productRoutes } from './routes/productRoutes.js'
+import { shippingRoutes } from './routes/shippingRoutes.js'
 import { uploadRoutes } from './routes/uploadRoutes.js'
 import { userRoutes } from './routes/userRoutes.js'
 import { AuthService } from './services/authService.js'
@@ -22,13 +23,13 @@ import { InvoiceService } from './services/invoiceService.js'
 import { OrderService } from './services/orderService.js'
 import { PaymentService } from './services/paymentService.js'
 import { ProductService } from './services/productService.js'
+import { ShippingService } from './services/shippingService.js'
 import { StorageService } from './services/storageService.js'
 import { ConsoleEmailProvider } from './providers/email/ConsoleEmailProvider.js'
 import { SesEmailProvider } from './providers/email/SesEmailProvider.js'
-import { MockInvoiceProvider } from './providers/invoices/MockInvoiceProvider.js'
-import { DatilProvider } from './providers/invoices/DatilProvider.js'
-import { MockPaymentProvider } from './providers/payments/MockPaymentProvider.js'
-import { PayPhoneProvider } from './providers/payments/PayPhoneProvider.js'
+import { getInvoiceProvider } from './providers/invoices/getInvoiceProvider.js'
+import { getPaymentProvider } from './providers/payments/getPaymentProvider.js'
+import { getShippingProvider } from './providers/shipping/getShippingProvider.js'
 import { LocalStorageProvider } from './providers/storage/LocalStorageProvider.js'
 import { S3StorageProvider } from './providers/storage/S3StorageProvider.js'
 import { asyncHandler, HttpError } from './utils/errors.js'
@@ -37,25 +38,27 @@ import * as paymentController from './controllers/paymentController.js'
 import * as invoiceController from './controllers/invoiceController.js'
 import { LocalInvoiceQueue } from './providers/queue/LocalInvoiceQueue.js'
 import { SqsInvoiceQueue } from './providers/queue/SqsInvoiceQueue.js'
+import { DbJobQueue } from './providers/queue/DbJobQueue.js'
 import { createInvoiceWorker } from './workers/invoiceWorker.js'
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, validateImageBytes } from './utils/fileValidation.js'
 
 function providers() {
   const uploadsRoot = resolve(env.uploadsDir)
   return {
-    payment: env.paymentProvider === 'mock' ? new MockPaymentProvider() : new PayPhoneProvider(),
-    invoice: env.invoiceProvider === 'mock' ? new MockInvoiceProvider() : new DatilProvider(),
+    payment: getPaymentProvider(),
+    invoice: getInvoiceProvider(),
+    shipping: getShippingProvider(),
     storage: env.storageProvider === 'local' ? new LocalStorageProvider(uploadsRoot) : new S3StorageProvider(),
     email: env.emailProvider === 'console' ? new ConsoleEmailProvider() : new SesEmailProvider(),
   }
 }
 
-export function createApp({ prisma = defaultPrisma, providerOverrides = {} } = {}) {
+export function createApp({ prisma = defaultPrisma, providerOverrides = {}, mockPayphoneServerEnabled = process.env.PAYPHONE_MOCK_SERVER_ENABLED === 'true', isProduction = env.isProduction } = {}) {
   const app = express()
   const uploadsRoot = resolve(env.uploadsDir)
   app.set('trust proxy', env.trustProxy)
   const selected = { ...providers(), ...providerOverrides }
-  const emailService = new EmailService(selected.email)
+  const emailService = new EmailService(selected.email, prisma)
   const storageService = new StorageService(selected.storage)
   const services = {
     prisma,
@@ -63,7 +66,12 @@ export function createApp({ prisma = defaultPrisma, providerOverrides = {} } = {
     email: emailService, storage: storageService,
   }
   services.invoices = new InvoiceService(prisma, selected.invoice, storageService, emailService)
-  const invoiceQueue = process.env.INVOICE_QUEUE_PROVIDER === 'sqs' ? new SqsInvoiceQueue() : new LocalInvoiceQueue(createInvoiceWorker(services.invoices))
+  services.shipping = new ShippingService(prisma, selected.shipping, emailService)
+  const invoiceQueue = process.env.INVOICE_QUEUE_PROVIDER === 'sqs'
+    ? new SqsInvoiceQueue()
+    : process.env.INVOICE_QUEUE_PROVIDER === 'local'
+      ? new LocalInvoiceQueue(createInvoiceWorker(services.invoices))
+      : new DbJobQueue(prisma)
   services.payments = new PaymentService(prisma, selected.payment, emailService, invoiceQueue)
   const authenticate = authenticateToken(prisma)
 
@@ -84,10 +92,29 @@ export function createApp({ prisma = defaultPrisma, providerOverrides = {} } = {
   app.use('/api/orders', orderRoutes(authenticate))
   app.use('/api/payments', paymentRoutes(authenticate))
   app.post('/api/webhooks/payphone', paymentController.webhook)
+  // Local mock endpoints to simulate PayPhone sandbox for development/testing.
+  // These routes are mounted only when PAYPHONE_MOCK_SERVER_ENABLED=true and never in production.
+  if (mockPayphoneServerEnabled && !isProduction) {
+    // These allow setting PAYPHONE_API_BASE=http://127.0.0.1:4000/mock-payphone
+    app.post('/mock-payphone/button/Prepare', asyncHandler(async (req, res) => {
+      const body = req.body || {}
+      const paymentId = Math.floor(Math.random() * 900000) + 100000
+      const redirectUrl = `${process.env.PAYPHONE_ALLOWED_DOMAIN || 'http://localhost:5173'}/mock-payphone/checkout?paymentId=${paymentId}`
+      return res.json({ paymentId, payWithCard: redirectUrl, payWithPayPhone: null })
+    }))
+    app.post('/mock-payphone/button/V2/Confirm', asyncHandler(async (req, res) => {
+      const body = req.body || {}
+      const id = Number(body.id || body.transactionId || 0)
+      return res.json({ transactionId: id, clientTransactionId: body.clientTxId || body.clientTransactionId || null, amount: body.amount || 0, currency: body.currency || 'USD', transactionStatus: 'Approved', statusCode: '00', messageCode: 'APPROVED' })
+    }))
+  }
   app.use('/api/invoices', invoiceRoutes(authenticate))
+  app.use('/api', shippingRoutes(authenticate))
   app.use('/api/uploads', uploadRoutes(authenticate))
   app.get('/api/admin/orders', authenticate, authorizeRoles('ADMIN'), asyncHandler(async (req, res) => res.json(await services.orders.all())))
   app.post('/api/admin/invoices/:id/retry', authenticate, authorizeRoles('ADMIN'), invoiceController.retry)
+  app.post('/api/admin/payments/:paymentId/reverse', authenticate, authorizeRoles('ADMIN'), paymentController.reverse)
+  app.post('/api/admin/payments/:paymentId/refund', authenticate, authorizeRoles('ADMIN'), paymentController.refund)
 
   const localUploads = uploadsRoot
   const upload = multer({ storage: multer.diskStorage({ destination: async (req, file, callback) => { try { await mkdir(localUploads, { recursive: true }); callback(null, localUploads) } catch (error) { callback(error) } }, filename: (req, file, callback) => callback(null, `${Date.now()}-${crypto.randomUUID()}${extname(file.originalname).toLowerCase()}`) }), limits: { fileSize: MAX_IMAGE_BYTES }, fileFilter: (req, file, callback) => callback(null, IMAGE_TYPES[file.mimetype]?.includes(extname(file.originalname).toLowerCase()) === true) })
