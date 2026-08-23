@@ -10,6 +10,14 @@ export function clearSession() {
   ;['token', 'role', 'wf_user', 'user'].forEach((key) => window.localStorage.removeItem(key))
 }
 
+export function persistSession(data) {
+  if (!data?.token) throw new Error('Missing authentication token')
+  window.localStorage.setItem('token', data.token)
+  window.localStorage.setItem('wf_user', JSON.stringify(data.user || {}))
+  if (data.user?.role) window.localStorage.setItem('role', data.user.role)
+  else window.localStorage.removeItem('role')
+}
+
 export function sessionPayload() {
   const token = window.localStorage.getItem('token')
   if (!token) return null

@@ -164,10 +164,11 @@ if [[ -e /etc/ssh/sshd_config.d/99-wilmas-hardening.conf ]]; then
   rm -f -- /etc/ssh/sshd_config.d/99-wilmas-hardening.conf
 fi
 sshd -t
-sshd -T | grep -qx 'permitrootlogin no'
-sshd -T | grep -qx 'passwordauthentication no'
-sshd -T | grep -qx 'kbdinteractiveauthentication no'
-sshd -T | grep -qx 'pubkeyauthentication yes'
+sshd_effective_config="$(sshd -T)"
+grep -qx 'permitrootlogin no' <<<"${sshd_effective_config}"
+grep -qx 'passwordauthentication no' <<<"${sshd_effective_config}"
+grep -qx 'kbdinteractiveauthentication no' <<<"${sshd_effective_config}"
+grep -qx 'pubkeyauthentication yes' <<<"${sshd_effective_config}"
 systemctl reload ssh
 
 # This dedicated host is fully managed by this profile. The Lightsail firewall

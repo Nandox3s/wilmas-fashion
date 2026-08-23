@@ -7,17 +7,18 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/cart.test.js"
+    "test": "node --test tests/cart.test.js tests/images.test.js tests/session.test.js"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
+    "axios": "^1.4.0",
+    "chart.js": "^4.4.0",
+    "framer-motion": "^10.12.16",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  ,"react-router-dom": "^6.14.1",
-  "axios": "^1.4.0",
-  "chart.js": "^4.4.0",
     "react-chartjs-2": "^5.2.0",
+    "react-dom": "^18.2.0",
     "react-hot-toast": "^2.5.2",
-    "framer-motion": "^10.12.16"
+    "react-router-dom": "^6.14.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { persistSession } from '../services/apiClient'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -29,16 +30,6 @@ function getRegisterError(error) {
   if (message) return translations[message] || message
   if (error.code === 'ERR_NETWORK') return 'No pudimos conectar con el servidor. Inténtalo de nuevo.'
   return 'No pudimos crear tu cuenta. Inténtalo de nuevo.'
-}
-
-function persistSession(data) {
-  if (!data?.token) throw new Error('Missing authentication token')
-
-  window.localStorage.setItem('token', data.token)
-  window.localStorage.setItem('wf_user', JSON.stringify(data.user || {}))
-
-  if (data.user?.role) window.localStorage.setItem('role', data.user.role)
-  else window.localStorage.removeItem('role')
 }
 
 export default function Register() {

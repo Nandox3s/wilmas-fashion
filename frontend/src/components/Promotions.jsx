@@ -1,19 +1,18 @@
 import { Link } from 'react-router-dom'
-import { availableProducts, getProductImageUrl } from '../data/products'
+import ProductImage from './ProductImage'
 import { formatCurrency } from '../utils/cart'
 
-export default function Promotions() {
-  const offerProduct = availableProducts.find((product) => product.onOffer) || availableProducts[0]
+export default function Promotions({ products = [] }) {
+  const offerProduct = products.find((product) => product.onOffer) || products[0] || null
 
   return (
     <section className="mt-14 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]" aria-label="Promociones y beneficios">
-      <article className="relative min-h-[410px] overflow-hidden rounded-[2rem] bg-[#ddd0c7]">
-        <img
-          src={getProductImageUrl(offerProduct)}
+      {offerProduct && <article className="relative min-h-[410px] overflow-hidden rounded-[2rem] bg-[#ddd0c7]">
+        <ProductImage
+          product={offerProduct}
           alt={`${offerProduct.name} en oferta`}
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
-          onError={(event) => { event.currentTarget.src = '/img_wf/placeholder.svg' }}
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(25,10,16,.9),rgba(25,10,16,.45)_55%,transparent)]" />
         <div className="relative flex min-h-[410px] max-w-md flex-col justify-end p-6 text-white sm:p-9">
@@ -23,7 +22,7 @@ export default function Promotions() {
           <p className="mt-5 font-serif text-3xl font-semibold text-[#f0d381]">{formatCurrency(offerProduct.price)}</p>
           <Link to={`/product/${offerProduct.id}`} className="button-primary mt-6 w-fit">Ver esta oferta</Link>
         </div>
-      </article>
+      </article>}
 
       <article className="relative overflow-hidden rounded-[2rem] bg-[#6d1738] p-6 text-white sm:p-9">
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full border border-white/10 shadow-[0_0_0_42px_rgba(255,255,255,.025)]" />

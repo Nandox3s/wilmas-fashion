@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getProductImageUrl } from '../data/products'
+import ProductImage from './ProductImage'
 import Modal from './Modal'
 import ProductConfigurator from './ProductConfigurator'
 
@@ -26,11 +26,10 @@ export default function ProductOptionsModal({ family, onClose }) {
       {family && (
         <div className="grid gap-0 md:grid-cols-[0.9fr_1.1fr]">
           <div className="bg-[#f1e8e1] p-4 sm:p-6">
-            <img
-              src={getProductImageUrl(activeProduct)}
+            <ProductImage
+              product={activeProduct}
               alt={`${activeProduct?.name || family.product.name} en color ${activeProduct?.color || family.product.color}`}
               className="aspect-[4/5] w-full rounded-[1.25rem] object-cover shadow-sm"
-              onError={(event) => { event.currentTarget.src = '/img_wf/placeholder.svg' }}
             />
             <Link
               to={`/product/${family.product.id}`}

@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { availableProducts, getProductImageUrl } from '../data/products'
+import ProductImage from './ProductImage'
 import { formatCurrency } from '../utils/cart'
 
-export default function Hero() {
-  const palazo = availableProducts.find((product) => product.id === 'Palazo_Mujer') || availableProducts[0]
+export default function Hero({ products = [] }) {
+  const palazo = products.find((product) => product.image === '/img_wf/Palazo.jpg') || products[0] || null
 
   return (
     <section className="relative overflow-hidden bg-[#24131b] text-white">
@@ -31,13 +31,12 @@ export default function Hero() {
           </dl>
         </div>
 
-        <div className="relative mx-auto w-full max-w-2xl lg:ml-auto">
+        {palazo && <div className="relative mx-auto w-full max-w-2xl lg:ml-auto">
           <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 p-2 shadow-[0_35px_100px_rgba(0,0,0,.35)] backdrop-blur-sm sm:rounded-[2.5rem]">
-            <img
-              src={getProductImageUrl(palazo)}
+            <ProductImage
+              product={palazo}
               alt={`${palazo.name}, color ${palazo.color}`}
               className="aspect-[4/5] max-h-[670px] w-full rounded-[1.55rem] object-cover sm:rounded-[2rem]"
-              onError={(event) => { event.currentTarget.src = '/img_wf/placeholder.svg' }}
             />
           </div>
           <div className="absolute -bottom-5 left-3 right-3 rounded-[1.25rem] border border-white/10 bg-[#fffdf9]/95 p-4 text-[#28161e] shadow-[0_20px_50px_rgba(0,0,0,.2)] backdrop-blur sm:bottom-5 sm:left-[-1.5rem] sm:right-auto sm:w-72">
@@ -52,7 +51,7 @@ export default function Hero() {
               </Link>
             </div>
           </div>
-        </div>
+        </div>}
       </div>
     </section>
   )

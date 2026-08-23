@@ -2,6 +2,8 @@ import { useState } from 'react'
 import axios from 'axios'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import SocialLoginButtons from '../components/SocialLoginButtons'
+import { persistSession } from '../services/apiClient'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -23,21 +25,12 @@ function getLoginError(error) {
     'Invalid email format': 'Escribe un correo electrónico válido.',
     'Password required': 'La contraseña es obligatoria.',
     'Invalid email or password': 'El correo o la contraseña no son correctos.',
+    'This account uses social login': 'Esta cuenta usa Google o Facebook. Continúa con el proveedor correspondiente.',
   }
 
   if (message) return translations[message] || message
   if (error.code === 'ERR_NETWORK') return 'No pudimos conectar con el servidor. Inténtalo de nuevo.'
   return 'No pudimos iniciar sesión. Inténtalo de nuevo.'
-}
-
-function persistSession(data) {
-  if (!data?.token) throw new Error('Missing authentication token')
-
-  window.localStorage.setItem('token', data.token)
-  window.localStorage.setItem('wf_user', JSON.stringify(data.user || {}))
-
-  if (data.user?.role) window.localStorage.setItem('role', data.user.role)
-  else window.localStorage.removeItem('role')
 }
 
 export default function Login() {
@@ -82,6 +75,32 @@ export default function Login() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  async function socialLogin(provider, payload) {
+    setServerError('')
+    setIsSubmitting(true)
+    try {
+      const response = await axios.post(`/api/auth/${provider}`, payload)
+      persistSession(response.data)
+      toast.success('Sesión iniciada correctamente')
+      navigate(redirectTo, { replace: true })
+    } catch (error) {
+      const message = error.code === 'ERR_NETWORK'
+        ? 'No pudimos conectar con el servidor. Inténtalo de nuevo.'
+        : `No fue posible iniciar sesión con ${provider === 'google' ? 'Google' : 'Facebook'}.`
+      setServerError(message)
+      toast.error(message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function socialFailure(provider, cancelled = false) {
+    const service = provider === 'google' ? 'Google' : 'Facebook'
+    const message = cancelled ? `Cancelaste el inicio de sesión con ${service}.` : `No fue posible iniciar sesión con ${service}.`
+    setServerError(message)
+    toast.error(message)
   }
 
   return (
@@ -224,6 +243,13 @@ export default function Login() {
               {isSubmitting ? 'Iniciando sesión…' : 'Iniciar sesión'}
             </button>
           </form>
+
+          <SocialLoginButtons
+            disabled={isSubmitting}
+            onGoogle={(credential) => socialLogin('google', { credential })}
+            onFacebook={(accessToken) => socialLogin('facebook', { accessToken })}
+            onFailure={socialFailure}
+          />
 
           <p className="auth-switch">
             ¿Aún no tienes cuenta?{' '}

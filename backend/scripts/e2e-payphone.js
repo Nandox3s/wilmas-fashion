@@ -7,12 +7,25 @@ import assert from 'node:assert'
 import { spawnSync } from 'node:child_process'
 import { prisma } from '../src/config/prisma.js'
 
-const API = process.env.API_BASE || 'http://127.0.0.1:4000'
+const databaseName = process.env.DATABASE_URL ? decodeURIComponent(new URL(process.env.DATABASE_URL).pathname.slice(1)) : ''
+if (databaseName !== 'wilmas_fashion_test') throw new Error('E2E PayPhone must use wilmas_fashion_test')
+if (!process.env.API_BASE) throw new Error('API_BASE must point to a backend instance using wilmas_fashion_test')
+const API = process.env.API_BASE
 // When the server runs with INVOICE_QUEUE_PROVIDER=postgres, jobs are persisted
 // and the worker must be run separately. When using 'local', invoices are
 // processed inline and no Job rows are created.
 const queueProvider = process.env.INVOICE_QUEUE_PROVIDER || 'local'
 const expectDbJobs = queueProvider === 'postgres'
+const cleanup = { orderId: null, productId: null, userEmail: null }
+
+async function cleanupArtifacts() {
+  if (cleanup.orderId) {
+    await prisma.job.deleteMany({ where: { aggregateId: String(cleanup.orderId) } }).catch(() => {})
+    await prisma.order.delete({ where: { id: cleanup.orderId } }).catch(() => {})
+  }
+  if (cleanup.productId) await prisma.product.delete({ where: { id: cleanup.productId } }).catch(() => {})
+  if (cleanup.userEmail) await prisma.user.delete({ where: { email: cleanup.userEmail } }).catch(() => {})
+}
 
 async function jsonFetch(url, opts = {}) {
   const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } })
@@ -41,6 +54,7 @@ function runWorker(env = {}) {
 async function run() {
   // ── Setup ──────────────────────────────────────────────────────────────────
   const testEmail = `e2e+${Date.now()}@example.test`
+  cleanup.userEmail = testEmail
   const testPassword = 'P@ssw0rd123'
   await jsonFetch(`${API}/api/auth/register`, { method: 'POST', body: JSON.stringify({ name: 'E2E Test', email: testEmail, password: testPassword }) })
   const login = await jsonFetch(`${API}/api/auth/login`, { method: 'POST', body: JSON.stringify({ email: testEmail, password: testPassword }) })
@@ -49,6 +63,7 @@ async function run() {
 
   const sku = `E2E-SKU-${Date.now()}`
   const product = await prisma.product.create({ data: { name: 'E2E Product', sku, brand: 'E2E', category: 'E2E', sizes: ['M'], color: 'Negro', price: 10.0, stock: 10 } })
+  cleanup.productId = product.id
   const stockBefore = product.stock
 
   const orderPayload = {
@@ -58,6 +73,7 @@ async function run() {
     billingProfile: { legalName: 'E2E Test', billingEmail: testEmail, billingAddress: 'Av. Siempre Viva 742' },
   }
   const created = await jsonFetch(`${API}/api/orders`, { method: 'POST', headers, body: JSON.stringify(orderPayload) })
+  cleanup.orderId = created.id
   console.log('Order created:', created.reference, 'id', created.id)
 
   // ── 1. Prepare ─────────────────────────────────────────────────────────────
@@ -150,4 +166,4 @@ async function run() {
 
 run()
   .catch((err) => { console.error('E2E failed:', err.message); process.exit(2) })
-  .finally(() => prisma.$disconnect().catch(() => {}))
+  .finally(async () => { await cleanupArtifacts(); await prisma.$disconnect().catch(() => {}) })

@@ -573,6 +573,86 @@ svg {
   to { transform: rotate(360deg); }
 }
 
+.social-login {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: #887a80;
+  font-size: 0.75rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: rgba(57, 35, 44, 0.13);
+}
+
+.social-google {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  overflow: hidden;
+}
+
+.social-google--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.social-button {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  border: 1px solid rgba(57, 35, 44, 0.18);
+  border-radius: 999px;
+  background: #fff;
+  color: #33252b;
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.social-button:hover:not(:disabled) {
+  border-color: rgba(91, 14, 45, 0.42);
+  box-shadow: 0 8px 20px rgba(39, 16, 24, 0.08);
+  transform: translateY(-1px);
+}
+
+.social-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.social-button--facebook {
+  border-color: rgba(24, 119, 242, 0.3);
+  color: #145dbf;
+}
+
+.social-facebook-mark {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: end center;
+  border-radius: 50%;
+  background: #1877f2;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .auth-switch {
   margin: 1.5rem 0 0;
   color: var(--ink-muted);
@@ -763,6 +843,31 @@ svg {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.58), transparent);
   animation: skeleton-shimmer 1.35s infinite;
   content: '';
+}
+
+.product-image-fallback {
+  display: flex;
+  min-height: 5rem;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.65rem;
+  background: linear-gradient(145deg, #eee5df, #f8f3ef);
+  color: #806e75;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.product-image-fallback svg {
+  width: clamp(1.75rem, 12%, 3rem);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.72;
 }
 
 .spinner {

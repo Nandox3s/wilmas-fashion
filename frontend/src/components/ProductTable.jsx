@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import ProductModal from './ProductModal'
+import { getProductImageUrl } from '../data/products'
 
 function authHeaders() {
   const token = localStorage.getItem('token')
@@ -20,14 +21,7 @@ function parseSizes(value) {
 }
 
 function resolveImageUrl(image) {
-  if (!image) return ''
-  if (/^https?:\/\//i.test(image) || image.startsWith('data:')) return image
-  if (image.startsWith('/img_wf/')) return image
-  const path = image.startsWith('/') ? image : `/uploads/${image}`
-  const apiBase = axios.defaults.baseURL
-  return apiBase && /^https?:\/\//i.test(apiBase)
-    ? `${apiBase.replace(/\/$/, '')}${path}`
-    : path
+  return getProductImageUrl({ image }) || ''
 }
 
 function formatMoney(value) {

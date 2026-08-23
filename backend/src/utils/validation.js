@@ -23,7 +23,7 @@ export const normalizeSizes = (value) => {
   if (!Array.isArray(values)) values = []
   return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))]
 }
-export const publicUser = ({ id, name, email, role, createdAt, updatedAt }) => ({ id, name, email, role, createdAt, updatedAt })
+export const publicUser = ({ id, name, email, role, avatar, createdAt, updatedAt }) => ({ id, name, email, role, avatar: avatar || null, createdAt, updatedAt })
 export const serializeProduct = (product) => product && ({ ...product, price: Number(product.price), discount: Number(product.discount), sizes: normalizeSizes(product.sizes) })
 export const serializeMoney = (record) => record && JSON.parse(JSON.stringify(record, (key, value) => (
   value && typeof value === 'object' && typeof value.toFixed === 'function' ? Number(value) : value

@@ -12,6 +12,11 @@ enum Role {
   ADMIN
 }
 
+enum AuthProvider {
+  GOOGLE
+  FACEBOOK
+}
+
 enum OrderStatus {
   CREATED
   PENDING_PAYMENT
@@ -87,18 +92,34 @@ enum ShippingStatus {
 }
 
 model User {
-  id              Int              @id @default(autoincrement())
+  id              Int                @id @default(autoincrement())
   name            String
-  email           String           @unique
-  password        String
-  role            Role             @default(USER)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  email           String             @unique
+  password        String?
+  avatar          String?
+  role            Role               @default(USER)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   sales           Sale[]
   orders          Order[]
   billingProfiles BillingProfile[]
-  productsCreated Product[]        @relation("ProductCreatedBy")
-  productsUpdated Product[]        @relation("ProductUpdatedBy")
+  productsCreated Product[]          @relation("ProductCreatedBy")
+  productsUpdated Product[]          @relation("ProductUpdatedBy")
+  authProviders   UserAuthProvider[]
+}
+
+model UserAuthProvider {
+  id         Int          @id @default(autoincrement())
+  provider   AuthProvider
+  providerId String
+  userId     Int
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@unique([provider, userId])
+  @@index([userId])
 }
 
 model Product {
@@ -114,6 +135,7 @@ model Product {
   onOffer      Boolean                @default(false)
   stock        Int
   image        String?
+  isActive     Boolean                @default(true)
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   createdById  Int?

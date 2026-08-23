@@ -43,7 +43,7 @@ $trackedPaths = @(
   'backend/scripts/migration/validate-import.js',
   'ops/lightsail'
 )
-$trackedFiles = @(& git -C $repositoryRoot ls-files --cached -- @trackedPaths)
+$trackedFiles = @(& git -C $repositoryRoot ls-files --cached --others --exclude-standard -- @trackedPaths)
 if ($LASTEXITCODE -ne 0) {
   throw 'Unable to enumerate the tracked runtime allowlist.'
 }
@@ -61,7 +61,10 @@ $requiredFiles = @(
   'backend/package.json',
   'backend/package-lock.json',
   'backend/prisma/schema.prisma',
+  'backend/prisma/migrations/20260823000000_add_social_auth/migration.sql',
+  'backend/prisma/migrations/20260823010000_add_product_active/migration.sql',
   'backend/src/server.js',
+  'backend/src/providers/auth/socialAuthProviders.js',
   'backend/scripts/migration/import-postgresql-data.js',
   'backend/scripts/migration/rotate-imported-password.js',
   'backend/scripts/migration/validate-export.js',

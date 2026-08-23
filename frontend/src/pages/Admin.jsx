@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar'
 import ProductModal from '../components/ProductModal'
 import { getAdminOrders } from '../services/orderService'
 import { formatCurrency } from '../utils/cart'
+import { getProductImageUrl } from '../data/products'
 
 function authHeaders() {
   const token = localStorage.getItem('token')
@@ -37,12 +38,7 @@ function parseSizes(value) {
 }
 
 function resolveImageUrl(image) {
-  if (!image) return ''
-  if (/^https?:\/\//i.test(image) || image.startsWith('data:')) return image
-  if (image.startsWith('/img_wf/')) return image
-  const path = image.startsWith('/') ? image : `/uploads/${image}`
-  const apiBase = axios.defaults.baseURL
-  return apiBase && /^https?:\/\//i.test(apiBase) ? `${apiBase.replace(/\/$/, '')}${path}` : path
+  return getProductImageUrl({ image }) || ''
 }
 
 function formatMoney(value) {

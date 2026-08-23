@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { getProductImageUrl } from '../data/products'
+import ProductImage from './ProductImage'
 import { formatCurrency } from '../utils/cart'
 import QuantitySelector from './QuantitySelector'
 
@@ -9,11 +9,10 @@ export default function CartItem({ item, onQuantityChange, onRemove }) {
   return (
     <article className="grid gap-4 border-b border-[#39232c]/10 p-4 last:border-b-0 sm:grid-cols-[116px_1fr_auto] sm:gap-5 sm:p-5">
       <Link to={`/product/${item.productId}`} className="block overflow-hidden rounded-[1.15rem] bg-[#eee5df]">
-        <img
-          src={getProductImageUrl(item)}
+        <ProductImage
+          product={item}
           alt={`${item.name}, color ${item.color}${item.size ? `, talla ${item.size}` : ''}`}
           className="aspect-[4/5] h-full max-h-44 w-full object-cover sm:max-h-none"
-          onError={(event) => { event.currentTarget.src = '/img_wf/placeholder.svg' }}
         />
       </Link>
 

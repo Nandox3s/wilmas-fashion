@@ -47,6 +47,9 @@ export const env = Object.freeze({
   presignedUrlTtl: number('S3_PRESIGNED_URL_TTL_SECONDS', 300, { min: 60, max: 900 }),
   jobMaxAttempts: number('JOB_MAX_ATTEMPTS', 5, { min: 1, max: 20 }),
   jobPollIntervalMs: number('JOB_POLL_INTERVAL_MS', 5000, { min: 500, max: 120000 }),
+  googleClientId: String(process.env.GOOGLE_CLIENT_ID || '').trim(),
+  facebookAppId: String(process.env.FACEBOOK_APP_ID || '').trim(),
+  facebookAppSecret: String(process.env.FACEBOOK_APP_SECRET || '').trim(),
 })
 
 if (env.checkoutMode === 'production' && (env.paymentProvider === 'mock' || env.invoiceProvider === 'mock')) {

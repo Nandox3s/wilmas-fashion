@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ProductConfigurator from '../components/ProductConfigurator'
-import { getProductImageUrl } from '../data/products'
+import ProductImage from '../components/ProductImage'
 import { findProductFamily, loadCatalogProducts } from '../services/productService'
 import { formatCurrency } from '../utils/cart'
 
@@ -74,11 +74,10 @@ export default function Product() {
         <div className="mt-6 grid items-start gap-7 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <section aria-label="Galería del producto" className="lg:sticky lg:top-28">
             <div className="relative overflow-hidden rounded-[1.75rem] bg-[#eadfd8] shadow-[0_22px_70px_rgba(49,24,34,0.12)] sm:rounded-[2.25rem]">
-              <img
-                src={getProductImageUrl(displayProduct)}
+              <ProductImage
+                product={displayProduct}
                 alt={`${displayProduct.name} de ${displayProduct.brand}, color ${displayProduct.color}`}
                 className="aspect-[4/5] max-h-[780px] w-full object-cover"
-                onError={(event) => { event.currentTarget.src = '/img_wf/placeholder.svg' }}
               />
               {displayProduct.onOffer && (
                 <span className="absolute left-4 top-4 rounded-full bg-[#6d1738] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white">

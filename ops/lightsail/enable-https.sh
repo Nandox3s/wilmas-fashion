@@ -22,7 +22,7 @@ if [[ ! ${DOMAIN_NAME} =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])$ ]]; then
   echo "Invalid domain name." >&2
   exit 1
 fi
-if [[ ! ${CERTBOT_EMAIL} =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+if [[ ${CERTBOT_EMAIL} != "-" && ! ${CERTBOT_EMAIL} =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
   echo "Invalid email address." >&2
   exit 1
 fi
@@ -44,11 +44,15 @@ if ! flock -n 9; then
 fi
 
 if [[ ! -s "/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem" ]]; then
+  certbot_email_args=(--register-unsafely-without-email)
+  if [[ ${CERTBOT_EMAIL} != "-" ]]; then
+    certbot_email_args=(--email "${CERTBOT_EMAIL}")
+  fi
   certbot certonly \
     --webroot \
     --webroot-path /var/www/certbot \
     --domain "${DOMAIN_NAME}" \
-    --email "${CERTBOT_EMAIL}" \
+    "${certbot_email_args[@]}" \
     --agree-tos \
     --no-eff-email \
     --non-interactive

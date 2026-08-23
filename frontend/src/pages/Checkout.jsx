@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import CartSummary from '../components/CartSummary'
 import CheckoutForm from '../components/CheckoutForm'
 import { useCart } from '../context/CartContext'
-import { getProductImageUrl } from '../data/products'
+import ProductImage from '../components/ProductImage'
 import { validateCheckout } from '../utils/checkout'
 import { formatCurrency } from '../utils/cart'
 import { confirmPayment, createOrder, createPayment, preparePayphonePayment } from '../services/orderService'
@@ -217,11 +217,10 @@ export default function Checkout() {
                   const effectivePrice = item.price * (1 - item.discount / 100)
                   return (
                     <div key={item.lineId} className="flex gap-3 rounded-xl bg-white/[0.07] p-2.5">
-                      <img
-                        src={getProductImageUrl(item)}
+                      <ProductImage
+                        product={item}
                         alt=""
                         className="h-16 w-[52px] shrink-0 rounded-lg object-cover"
-                        onError={(event) => { event.currentTarget.src = '/img_wf/placeholder.svg' }}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex justify-between gap-2">

@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { availableProducts } from '../data/products'
 import { parseSizes } from '../utils/cart'
 
 function privateConfig(extra = {}) {
@@ -27,21 +26,6 @@ export async function uploadProductImage(file) {
 function normalizeText(value) {
   return String(value || '').trim()
 }
-function normalizeLocalProduct(product) {
-  return {
-    ...product,
-    id: String(product.id),
-    apiId: Number.isInteger(Number(product.apiId)) ? Number(product.apiId) : null,
-    sku: normalizeText(product.sku || product.id).toUpperCase(),
-    brand: normalizeText(product.brand || 'Wilmas Fashion'),
-    sizes: parseSizes(product.sizes ?? product.size),
-    price: Number(product.price) || 0,
-    discount: Number(product.discount) || 0,
-    stock: Math.max(0, Number(product.stock) || 0),
-    source: product.apiId ? 'synced' : 'local',
-  }
-}
-
 function normalizeApiProduct(product) {
   return {
     ...product,
@@ -57,10 +41,6 @@ function normalizeApiProduct(product) {
   }
 }
 
-export function getLocalProducts() {
-  return availableProducts.map(normalizeLocalProduct)
-}
-
 export async function loadCatalogProducts() {
   try {
     const response = await axios.get('/api/products', {
@@ -73,7 +53,7 @@ export async function loadCatalogProducts() {
       source: 'api',
     }
   } catch {
-    return { products: getLocalProducts(), source: 'local' }
+    return { products: [], source: 'unavailable' }
   }
 }
 

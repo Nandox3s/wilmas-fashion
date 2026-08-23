@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getProductImageUrl } from '../data/products'
+import ProductImage from './ProductImage'
 import { formatCurrency } from '../utils/cart'
 import { getColorSwatch } from './ColorSelector'
 
@@ -17,12 +17,11 @@ export default function ProductCard({ family, onQuickAdd }) {
       className="group flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-[#34222a]/10 bg-[#fffdf9] shadow-[0_12px_40px_rgba(49,24,34,0.07)]"
     >
       <Link to={`/product/${product.id}`} className="relative block overflow-hidden bg-[#eee5df]">
-        <img
-          src={getProductImageUrl(product)}
+        <ProductImage
+          product={product}
           alt={`${product.name} de ${product.brand}, color ${product.color}`}
           className="aspect-[4/5] w-full object-cover transition duration-500 group-hover:scale-[1.035]"
           loading="lazy"
-          onError={(event) => { event.currentTarget.src = '/img_wf/placeholder.svg' }}
         />
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           {family.onOffer && (

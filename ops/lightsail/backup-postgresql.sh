@@ -4,10 +4,22 @@ umask 077
 
 readonly BACKUP_ROOT=/opt/wilmas-fashion/backups
 readonly UPLOADS_ROOT=/opt/wilmas-fashion/uploads
-readonly DATABASE_NAME=wilmas_fashion
+database_name="${DATABASE_NAME:-}"
+if [[ -z ${database_name} && -f /etc/wilmas-fashion/backend.env ]]; then
+  database_url="$(sed -n 's/^DATABASE_URL="\(.*\)"$/\1/p' /etc/wilmas-fashion/backend.env | head -n 1)"
+  if [[ ${database_url} =~ /([a-zA-Z0-9_]+)\?schema=public$ ]]; then
+    database_name="${BASH_REMATCH[1]}"
+  fi
+fi
+readonly DATABASE_NAME="${database_name:-wilmas_fashion}"
+unset database_name database_url
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "This backup must run as root." >&2
+  exit 1
+fi
+if [[ ! ${DATABASE_NAME} =~ ^wilmas_fashion(_restore_[a-zA-Z0-9_]+)?$ ]]; then
+  echo "Refusing invalid database backup target." >&2
   exit 1
 fi
 

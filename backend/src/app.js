@@ -41,6 +41,7 @@ import { SqsInvoiceQueue } from './providers/queue/SqsInvoiceQueue.js'
 import { DbJobQueue } from './providers/queue/DbJobQueue.js'
 import { createInvoiceWorker } from './workers/invoiceWorker.js'
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, validateImageBytes } from './utils/fileValidation.js'
+import { FacebookAuthProvider, GoogleAuthProvider } from './providers/auth/socialAuthProviders.js'
 
 function providers() {
   const uploadsRoot = resolve(env.uploadsDir)
@@ -50,6 +51,8 @@ function providers() {
     shipping: getShippingProvider(),
     storage: env.storageProvider === 'local' ? new LocalStorageProvider(uploadsRoot) : new S3StorageProvider(),
     email: env.emailProvider === 'console' ? new ConsoleEmailProvider() : new SesEmailProvider(),
+    googleAuth: new GoogleAuthProvider(),
+    facebookAuth: new FacebookAuthProvider(),
   }
 }
 
@@ -62,7 +65,7 @@ export function createApp({ prisma = defaultPrisma, providerOverrides = {}, mock
   const storageService = new StorageService(selected.storage)
   const services = {
     prisma,
-    auth: new AuthService(prisma), products: new ProductService(prisma, storageService), orders: new OrderService(prisma),
+    auth: new AuthService(prisma, { google: selected.googleAuth, facebook: selected.facebookAuth }), products: new ProductService(prisma, storageService), orders: new OrderService(prisma),
     email: emailService, storage: storageService,
   }
   services.invoices = new InvoiceService(prisma, selected.invoice, storageService, emailService)

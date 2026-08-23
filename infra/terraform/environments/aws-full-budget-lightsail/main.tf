@@ -37,10 +37,11 @@ resource "aws_lightsail_instance_public_ports" "app" {
   instance_name = aws_lightsail_instance.app.name
 
   port_info {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
-    cidrs     = var.ssh_allowed_cidrs
+    protocol          = "tcp"
+    from_port         = 22
+    to_port           = 22
+    cidrs             = var.ssh_allowed_cidrs
+    cidr_list_aliases = ["lightsail-connect"]
   }
 
   port_info {

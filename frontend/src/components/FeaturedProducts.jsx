@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getLocalProducts, groupProductFamilies } from '../services/productService'
+import { groupProductFamilies } from '../services/productService'
 import ProductCard from './ProductCard'
 import ProductOptionsModal from './ProductOptionsModal'
 
-export default function FeaturedProducts() {
+export default function FeaturedProducts({ products = [] }) {
   const [selectedFamily, setSelectedFamily] = useState(null)
   const featured = useMemo(
-    () => groupProductFamilies(getLocalProducts()).filter((family) => family.product.category === 'Hombre').slice(0, 4),
-    []
+    () => groupProductFamilies(products).filter((family) => family.product.category === 'Hombre').slice(0, 4),
+    [products]
   )
 
   return (
