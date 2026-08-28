@@ -14,8 +14,9 @@ function repository() {
     { id: 1, name: 'Admin', email: 'admin@example.com', password: bcryptjs.hashSync('password123', 4), role: 'ADMIN' },
     { id: 2, name: 'User', email: 'user@example.com', password: bcryptjs.hashSync('password123', 4), role: 'USER' },
   ]
-  const products = [{ id: 1, name: 'Blusa', sku: 'SKU-1', brand: 'Wilmas', category: 'Blusas', sizes: ['S', 'M'], color: 'Vino', price: 20, discount: 0, onOffer: false, stock: 5, createdAt: new Date() }]
+  const products = [{ id: 1, name: 'Blusa', sku: 'SKU-1', brand: 'Wilmas', category: 'Blusas', sizes: ['S', 'M'], color: 'Vino', price: 20, discount: 0, onOffer: false, stock: 5, isActive: true, createdAt: new Date() }]
   const prisma = {
+    $transaction: async (callback) => callback(prisma),
     $queryRaw: async () => [{ '?column?': 1 }],
     user: {
       findUnique: async ({ where }) => users.find((item) => item.id === where.id || item.email === where.email) || null,
@@ -27,14 +28,17 @@ function repository() {
     },
     product: {
       findUnique: async ({ where }) => products.find((item) => item.id === where.id || item.sku === where.sku) || null,
-      findMany: async () => products,
-      count: async () => products.length,
+      findFirst: async ({ where }) => products.find((item) => item.id === where.id && (where.isActive === undefined || item.isActive === where.isActive)) || null,
+      findMany: async ({ where = {} } = {}) => products.filter((item) => where.isActive === undefined || item.isActive === where.isActive),
+      count: async ({ where = {} } = {}) => products.filter((item) => where.isActive === undefined || item.isActive === where.isActive).length,
       create: async ({ data }) => { if (products.some((item) => item.sku === data.sku)) throw Object.assign(new Error('duplicate'), { code: 'P2002' }); const item = { id: products.length + 1, createdAt: new Date(), ...data }; products.push(item); return item },
       update: async ({ where, data }) => Object.assign(products.find((item) => item.id === where.id), data),
       delete: async ({ where }) => products.splice(products.findIndex((item) => item.id === where.id), 1)[0],
       updateMany: async () => ({ count: 1 }),
     },
     sale: { count: async () => 0, aggregate: async () => ({ _sum: { total: 0 } }), findMany: async () => [] },
+    orderItem: { count: async () => 0 },
+    inventoryReservation: { count: async () => 0 },
   }
   return { prisma, users, products }
 }
@@ -42,19 +46,27 @@ function repository() {
 const bearer = (user) => `Bearer ${jwt.sign({ userId: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' })}`
 
 test('healthcheck confirms database connection', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).get('/api/ping'); assert.equal(response.status, 200); assert.equal(response.body.database, 'connected') })
-test('healthcheck fails in a controlled way without database', async () => { const { prisma } = repository(); prisma.$queryRaw = async () => { throw new Error('secret connection detail') }; const response = await request(createApp({ prisma })).get('/api/ping'); assert.equal(response.status, 500); assert.equal(response.body.error, 'Internal server error'); assert.doesNotMatch(JSON.stringify(response.body), /secret connection/) })
+test('healthcheck fails in a controlled way without database', async () => { const { prisma } = repository(); prisma.$queryRaw = async () => { throw new Error('secret connection detail') }; const response = await request(createApp({ prisma })).get('/api/ping'); assert.equal(response.status, 500); assert.equal(response.body.code, 'SERVER_ERROR'); assert.equal(response.body.success, false); assert.ok(response.body.requestId); assert.equal(response.headers['x-request-id'], response.body.requestId); assert.doesNotMatch(JSON.stringify(response.body), /secret connection|stack/i) })
 test('registration creates USER and ignores ADMIN input', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).post('/api/auth/register').send({ name: 'New User', email: 'new@example.com', password: 'password123', role: 'ADMIN' }); assert.equal(response.status, 201); assert.equal(response.body.user.role, 'USER'); assert.ok(response.body.token); assert.equal(response.body.user.password, undefined) })
 test('duplicate registration returns 409', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).post('/api/auth/register').send({ name: 'User', email: 'user@example.com', password: 'password123' }); assert.equal(response.status, 409) })
 test('login returns JWT without password', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).post('/api/auth/login').send({ email: 'user@example.com', password: 'password123' }); assert.equal(response.status, 200); assert.ok(response.body.token); assert.equal(response.body.user.password, undefined); assert.equal(jwt.verify(response.body.token, process.env.JWT_SECRET).email, 'user@example.com') })
 test('invalid login is rejected', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).post('/api/auth/login').send({ email: 'user@example.com', password: 'wrong' }); assert.equal(response.status, 401) })
-test('protected endpoint returns 401 without token', async () => { const { prisma } = repository(); assert.equal((await request(createApp({ prisma })).post('/api/products').send({})).status, 401) })
-test('USER cannot delete product', async () => { const { prisma, users } = repository(); assert.equal((await request(createApp({ prisma })).delete('/api/products/1').set('Authorization', bearer(users[1]))).status, 403) })
+test('stats overview is not intercepted by shipping authentication', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).get('/api/stats/overview'); assert.equal(response.status, 200) })
+test('protected endpoint returns a controlled 401 without token', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).post('/api/products').send({}); assert.equal(response.status, 401); assert.equal(response.body.success, false); assert.equal(response.body.code, 'AUTH_REQUIRED'); assert.ok(response.body.requestId) })
+test('PayPal create and capture endpoints require authentication', async () => { const { prisma } = repository(); const app = createApp({ prisma }); assert.equal((await request(app).post('/api/payments/paypal/create-order').send({ orderId: 1 })).status, 401); assert.equal((await request(app).post('/api/payments/paypal/capture-order').send({ orderId: 1, paypalOrderId: 'x' })).status, 401) })
+test('USER receives a controlled 403 for an ADMIN action', async () => { const { prisma, users } = repository(); const response = await request(createApp({ prisma })).delete('/api/products/1').set('Authorization', bearer(users[1])); assert.equal(response.status, 403); assert.equal(response.body.code, 'FORBIDDEN'); assert.match(response.body.message, /permisos/i) })
 test('ADMIN can delete product', async () => { const { prisma, users } = repository(); assert.equal((await request(createApp({ prisma })).delete('/api/products/1').set('Authorization', bearer(users[0]))).status, 200) })
+test('ADMIN hides and shows a product', async () => { const { prisma, users, products } = repository(); const app = createApp({ prisma }); assert.equal((await request(app).patch('/api/products/1/status').set('Authorization', bearer(users[0])).send({ isActive: false })).status, 200); assert.equal(products[0].isActive, false); assert.equal((await request(app).patch('/api/products/1/status').set('Authorization', bearer(users[0])).send({ isActive: true })).status, 200); assert.equal(products[0].isActive, true) })
+test('hidden product is excluded from the public catalog but retained for admin', async () => { const { prisma, users, products } = repository(); products[0].isActive = false; const app = createApp({ prisma }); assert.equal((await request(app).get('/api/products')).body.items.length, 0); assert.equal((await request(app).get('/api/products/admin').set('Authorization', bearer(users[0]))).body.items.length, 1) })
+test('ADMIN cannot physically delete a product with order or invoice history', async () => { const { prisma, users, products } = repository(); prisma.orderItem.count = async () => 1; const response = await request(createApp({ prisma })).delete('/api/products/1').set('Authorization', bearer(users[0])); assert.equal(response.status, 409); assert.equal(response.body.code, 'PRODUCT_HAS_HISTORY'); assert.equal(products.length, 1) })
+test('ADMIN cannot physically delete a product with a sale', async () => { const { prisma, users, products } = repository(); prisma.sale.count = async () => 1; const response = await request(createApp({ prisma })).delete('/api/products/1').set('Authorization', bearer(users[0])); assert.equal(response.status, 409); assert.equal(products.length, 1) })
+test('ADMIN cannot physically delete a product with an inventory reservation', async () => { const { prisma, users, products } = repository(); prisma.inventoryReservation.count = async () => 1; const response = await request(createApp({ prisma })).delete('/api/products/1').set('Authorization', bearer(users[0])); assert.equal(response.status, 409); assert.equal(products.length, 1) })
+test('USER cannot hide or show a product', async () => { const { prisma, users } = repository(); assert.equal((await request(createApp({ prisma })).patch('/api/products/1/status').set('Authorization', bearer(users[1])).send({ isActive: false })).status, 403) })
 test('USER can create a valid product', async () => { const { prisma, users } = repository(); const response = await request(createApp({ prisma })).post('/api/products').set('Authorization', bearer(users[1])).send({ name: 'Falda', sku: 'SKU-2', brand: 'Wilmas', category: 'Faldas', sizes: ['S'], color: 'Negro', price: 30, stock: 3 }); assert.equal(response.status, 201); assert.equal(response.body.sku, 'SKU-2') })
 test('duplicate SKU returns 409', async () => { const { prisma, users } = repository(); const response = await request(createApp({ prisma })).post('/api/products').set('Authorization', bearer(users[1])).send({ name: 'Otra', sku: 'SKU-1', brand: 'Wilmas', category: 'Faldas', sizes: ['S'], color: 'Negro', price: 30, stock: 3 }); assert.equal(response.status, 409) })
 test('negative price returns 400', async () => { const { prisma, users } = repository(); const response = await request(createApp({ prisma })).post('/api/products').set('Authorization', bearer(users[1])).send({ name: 'Otra', sku: 'SKU-X', brand: 'Wilmas', category: 'Faldas', sizes: ['S'], color: 'Negro', price: -1, stock: 3 }); assert.equal(response.status, 400) })
 test('negative stock returns 400', async () => { const { prisma, users } = repository(); const response = await request(createApp({ prisma })).post('/api/products').set('Authorization', bearer(users[1])).send({ name: 'Otra', sku: 'SKU-X', brand: 'Wilmas', category: 'Faldas', sizes: ['S'], color: 'Negro', price: 1, stock: -1 }); assert.equal(response.status, 400) })
-test('expired JWT returns 401', async () => { const { prisma, users } = repository(); const token = jwt.sign({ userId: users[1].id }, process.env.JWT_SECRET, { expiresIn: -1 }); assert.equal((await request(createApp({ prisma })).get('/api/auth/me').set('Authorization', `Bearer ${token}`)).status, 401) })
+test('expired JWT returns a controlled 401', async () => { const { prisma, users } = repository(); const token = jwt.sign({ userId: users[1].id }, process.env.JWT_SECRET, { expiresIn: -1 }); const response = await request(createApp({ prisma })).get('/api/auth/me').set('Authorization', `Bearer ${token}`); assert.equal(response.status, 401); assert.equal(response.body.code, 'INVALID_SESSION'); assert.match(response.body.message, /expirado/i) })
 test('unknown route returns consistent 404', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).get('/not-real'); assert.equal(response.status, 404); assert.equal(response.body.code, 'NOT_FOUND') })
 test('invoice files are never public through uploads', async () => { const { prisma } = repository(); const response = await request(createApp({ prisma })).get('/uploads/invoices/probe.pdf'); assert.equal(response.status, 404) })
 

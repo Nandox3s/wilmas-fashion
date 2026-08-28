@@ -12,9 +12,11 @@ const includeOrder = { items: true, payments: true, invoice: true }
 export class OrderService {
   constructor(prisma) { this.prisma = prisma }
   async create(input, user) {
-    if (!Array.isArray(input.items) || input.items.length === 0) throw new HttpError(400, 'Order requires at least one item')
+    if (!Array.isArray(input.items) || input.items.length === 0) throw new HttpError(400, 'El pedido debe incluir al menos un producto.', 'VALIDATION_ERROR')
+    const paymentMethod = input.paymentMethod == null ? null : String(input.paymentMethod)
+    if (paymentMethod && !['cash_on_delivery', 'paypal'].includes(paymentMethod)) throw new HttpError(400, 'El método de pago no es válido.', 'VALIDATION_ERROR')
     const customerEmail = String(input.customerEmail || user.email || '').trim().toLowerCase()
-    if (!emailIsValid(customerEmail)) throw new HttpError(400, 'Invalid customer email')
+    if (!emailIsValid(customerEmail)) throw new HttpError(400, 'El correo electrónico no es válido.', 'VALIDATION_ERROR')
     const customer = {
       customerName: text(input.customerName || user.name, 'Customer name'), customerEmail,
       identificationType: text(input.identificationType, 'Identification type', 30), identificationNumber: text(input.identificationNumber, 'Identification number', 30),
@@ -38,14 +40,14 @@ export class OrderService {
           throw new HttpError(500, `Product ${product.id} has invalid sizes format`)
         }
       }
-      if (products.length !== productIds.length) throw new HttpError(404, 'One or more products do not exist')
+      if (products.length !== productIds.length) throw new HttpError(404, 'Uno o más productos no existen.', 'PRODUCT_NOT_FOUND')
       let subtotalCents = 0; let discountCents = 0; let taxCents = 0
       const lines = []
       for (const product of products) {
         const productLines = [...requested.values()].filter((line) => line.productId === product.id)
         const totalQuantity = productLines.reduce((sum, line) => sum + line.quantity, 0)
         const stock = await tx.product.updateMany({ where: { id: product.id, stock: { gte: totalQuantity } }, data: { stock: { decrement: totalQuantity } } })
-        if (stock.count !== 1) throw new HttpError(409, `Insufficient stock for SKU ${product.sku}`)
+        if (stock.count !== 1) throw new HttpError(409, 'El stock de uno de los productos cambió. Revisa tu carrito.', 'INSUFFICIENT_STOCK')
         for (const request of productLines) {
           request.size = assertRequestedSize(request.size, product.sizes, { sku: product.sku })
           const base = cents(product.price) * request.quantity
@@ -56,8 +58,11 @@ export class OrderService {
         }
       }
       const shippingCents = subtotalCents - discountCents >= cents(env.freeShippingThreshold) ? 0 : cents(env.shippingAmount)
-      const reservations = [...new Set(lines.map((line) => line.productId))].map((productId) => ({ productId, quantity: lines.filter((line) => line.productId === productId).reduce((sum, line) => sum + line.quantity, 0), expiresAt }))
-      const created = await tx.order.create({ data: { reference: reference(), userId: user.id, ...customer, subtotal: amount(subtotalCents), discount: amount(discountCents), tax: amount(taxCents), shipping: amount(shippingCents), total: amount(subtotalCents - discountCents + taxCents + shippingCents), expiresAt, items: { create: lines }, reservations: { create: reservations } }, include: includeOrder })
+      const isCashOnDelivery = paymentMethod === 'cash_on_delivery'
+      const orderReference = reference()
+      const orderTotal = amount(subtotalCents - discountCents + taxCents + shippingCents)
+      const reservations = [...new Set(lines.map((line) => line.productId))].map((productId) => ({ productId, quantity: lines.filter((line) => line.productId === productId).reduce((sum, line) => sum + line.quantity, 0), expiresAt, ...(isCashOnDelivery ? { status: 'CONFIRMED' } : {}) }))
+      const created = await tx.order.create({ data: { reference: orderReference, userId: user.id, ...customer, subtotal: amount(subtotalCents), discount: amount(discountCents), tax: amount(taxCents), shipping: amount(shippingCents), total: orderTotal, expiresAt, ...(isCashOnDelivery ? { stockCommittedAt: new Date(), payments: { create: { provider: 'cash_on_delivery', idempotencyKey: `${orderReference}-cash-on-delivery`, amount: orderTotal, currency: 'USD', status: 'PENDING' } } } : {}), items: { create: lines }, reservations: { create: reservations } }, include: includeOrder })
 
       if (input.billingProfile && typeof input.billingProfile === 'object') {
         const legalName = text(input.billingProfile.legalName, 'Billing legal name', 120)
@@ -83,8 +88,8 @@ export class OrderService {
   }
   async byReference(referenceValue, user) {
     const order = await this.prisma.order.findUnique({ where: { reference: String(referenceValue) }, include: includeOrder })
-    if (!order) throw new HttpError(404, 'Order not found')
-    if (user.role !== 'ADMIN' && order.userId !== user.id) throw new HttpError(403, 'Forbidden')
+    if (!order) throw new HttpError(404, 'Pedido no encontrado.', 'ORDER_NOT_FOUND')
+    if (user.role !== 'ADMIN' && order.userId !== user.id) throw new HttpError(403, 'No tienes permisos para ver este pedido.', 'FORBIDDEN')
     return serializeMoney(order)
   }
   async mine(userId) { return serializeMoney(await this.prisma.order.findMany({ where: { userId }, include: includeOrder, orderBy: { createdAt: 'desc' } })) }

@@ -53,7 +53,7 @@ export default function Dashboard() {
     setError('')
 
     const baseRequests = [
-      axios.get('/api/stats/overview'),
+      axios.get('/api/stats/overview', { headers: authHeaders() }),
       axios.get('/api/products', { params: { limit: 100 } })
     ]
     const [overviewResult, productsResult] = await Promise.allSettled(baseRequests)

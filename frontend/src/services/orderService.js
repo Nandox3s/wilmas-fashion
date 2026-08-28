@@ -4,10 +4,8 @@ export const createOrder = async (data) => (await axios.post('/api/orders', data
 export const getMyOrders = async () => (await axios.get('/api/orders/my-orders', authConfig())).data
 export const getOrder = async (reference) => (await axios.get(`/api/orders/${encodeURIComponent(reference)}`, authConfig())).data
 export const getAdminOrders = async () => (await axios.get('/api/admin/orders', authConfig())).data
-export const createPayment = async (data) => (await axios.post('/api/payments/create', data, authConfig())).data
-export const confirmPayment = async (data) => (await axios.post('/api/payments/confirm', data)).data
-export const preparePayphonePayment = async (data) => (await axios.post('/api/payments/payphone/prepare', data, authConfig())).data
-export const confirmPayphonePayment = async (data) => (await axios.post('/api/payments/payphone/confirm', data, authConfig())).data
+export const createPaypalOrder = async (orderId) => (await axios.post('/api/payments/paypal/create-order', { orderId }, authConfig())).data
+export const capturePaypalOrder = async (paypalOrderId, orderId) => (await axios.post('/api/payments/paypal/capture-order', { paypalOrderId, orderId }, authConfig())).data
 export const getInvoiceForOrder = async (reference) => (await axios.get(`/api/invoices/order/${encodeURIComponent(reference)}`, authConfig())).data
 export const getInvoiceDocument = async (id, type) => (await axios.get(`/api/invoices/${id}/${type}-url`, authConfig())).data
 export const getOrderInvoice = async (orderId) => (await axios.get(`/api/orders/${orderId}/invoice`, authConfig())).data

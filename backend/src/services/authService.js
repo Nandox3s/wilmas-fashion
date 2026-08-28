@@ -6,8 +6,12 @@ import { emailIsValid, publicUser, text } from '../utils/validation.js'
 
 export class AuthService {
   constructor(prisma, socialProviders = {}) { this.prisma = prisma; this.socialProviders = socialProviders }
-  token(user) { return jwt.sign({ userId: user.id, email: user.email, role: user.role }, env.jwtSecret, { expiresIn: '7d' }) }
-  response(user) { return { token: this.token(user), user: publicUser(user), expiresIn: 604800 } }
+  token(user) { return jwt.sign({ userId: user.id, email: user.email, role: user.role }, env.jwtSecret, { expiresIn: env.jwtExpiresIn }) }
+  response(user) {
+    const token = this.token(user)
+    const payload = jwt.decode(token)
+    return { token, user: publicUser(user), expiresIn: payload.exp - payload.iat }
+  }
   async register(input) {
     const name = text(input.name, 'Name')
     const email = String(input.email || '').trim().toLowerCase()

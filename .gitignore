@@ -31,4 +31,8 @@ backend/migration-exports/
 *.p12
 *.pfx
 *.key
+*.dump
+backend.env
+logs/
+*.log
 infra/terraform/environments/aws-full-budget-lightsail/terraform.tfvars

@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getOrder, getOrderInvoice, getOrderInvoicePdf, getOrderInvoiceXml, getOrderShipment, getOrderTracking } from '../services/orderService'
 import { formatCurrency } from '../utils/cart'
+import { orderStatusLabel, paymentMethodLabel } from '../utils/orders'
+import toast from 'react-hot-toast'
+import { friendlyApiError } from '../services/apiClient'
 
-function sanitizeError(err) {
-  return err?.response?.data?.error || err?.message || 'Error inesperado'
-}
+const sanitizeError = (err) => friendlyApiError(err, 'No se pudo cargar el pedido.')
 
 function isSafeUrl(value) {
   if (!value) return false
@@ -31,6 +32,7 @@ export default function OrderDetail() {
   const [tracking, setTracking] = useState(null)
   const [error, setError] = useState('')
   const [downloadError, setDownloadError] = useState('')
+  const [downloading, setDownloading] = useState('')
 
   useEffect(() => {
     getOrder(reference)
@@ -50,6 +52,8 @@ export default function OrderDetail() {
 
   async function downloadDocument(type) {
     setDownloadError('')
+    if (downloading) return
+    setDownloading(type)
     try {
       const blob = type === 'xml' ? await getOrderInvoiceXml(order.id) : await getOrderInvoicePdf(order.id)
       const ext = type === 'xml' ? 'xml' : 'pdf'
@@ -61,9 +65,12 @@ export default function OrderDetail() {
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
+      toast.success('Factura descargada.')
     } catch (err) {
-      setDownloadError(sanitizeError(err))
-    }
+      const message = err?.response?.status === 404 ? 'El archivo de la factura no está disponible.' : friendlyApiError(err, 'No se pudo descargar la factura.')
+      setDownloadError(message)
+      toast.error(message)
+    } finally { setDownloading('') }
   }
 
   if (error) return <main className="p-10" role="alert">{error}</main>
@@ -79,7 +86,8 @@ export default function OrderDetail() {
       <section className="mx-auto max-w-4xl rounded-[2rem] bg-white p-6 shadow-sm">
         <p className="eyebrow">Pedido</p>
         <h1 className="mt-3 font-serif text-4xl">{order.reference}</h1>
-        <p className="mt-3 text-[#705d65]">Estado: <strong>{order.status}</strong></p>
+        <p className="mt-3 text-[#705d65]">Estado: <strong>{orderStatusLabel(order)}</strong></p>
+        <p className="mt-1 text-[#705d65]">Método de pago: <strong>{paymentMethodLabel(order)}</strong></p>
 
         <div className="mt-7 space-y-3">
           {order.items.map((item) => (
@@ -100,26 +108,23 @@ export default function OrderDetail() {
         {invoice && (
           <div className="mt-8 rounded-2xl bg-[#f8f2ee] p-4">
             <p className="font-semibold">Factura: {invoice.status}</p>
-            {invoice.provider === 'mock' && (
-              <p className="mt-1 text-xs font-semibold text-amber-700">
-                DOCUMENTO DE PRUEBA · SIN VALIDEZ TRIBUTARIA · NO AUTORIZADO POR EL SRI
-              </p>
-            )}
             {invoice.status === 'AUTHORIZED' && (
               <div className="mt-3 flex gap-3">
                 <button
                   type="button"
+                  disabled={Boolean(downloading)}
                   className="rounded-xl border border-[#39232c]/20 px-3 py-2 text-sm font-semibold hover:bg-[#f0e8e4]"
                   onClick={() => downloadDocument('xml')}
                 >
-                  Descargar XML
+                  {downloading === 'xml' ? 'Descargando factura…' : 'Descargar XML'}
                 </button>
                 <button
                   type="button"
+                  disabled={Boolean(downloading)}
                   className="rounded-xl border border-[#39232c]/20 px-3 py-2 text-sm font-semibold hover:bg-[#f0e8e4]"
                   onClick={() => downloadDocument('pdf')}
                 >
-                  Descargar PDF
+                  {downloading === 'pdf' ? 'Descargando factura…' : 'Descargar PDF'}
                 </button>
               </div>
             )}

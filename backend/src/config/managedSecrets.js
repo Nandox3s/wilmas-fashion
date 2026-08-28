@@ -1,4 +1,4 @@
-const APPLICATION_KEYS = new Set(['JWT_SECRET', 'PAYPHONE_TOKEN', 'PAYPHONE_STORE_ID', 'DATIL_API_KEY', 'SES_FROM_EMAIL'])
+const APPLICATION_KEYS = new Set(['JWT_SECRET', 'PAYPHONE_TOKEN', 'PAYPHONE_STORE_ID', 'PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'DATIL_API_KEY', 'SES_FROM_EMAIL'])
 
 async function secret(client, arn) {
   const { GetSecretValueCommand } = await import('@aws-sdk/client-secrets-manager')

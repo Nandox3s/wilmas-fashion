@@ -32,6 +32,7 @@ export const env = Object.freeze({
   port: number('PORT', 4000, { min: 1, max: 65535 }),
   uploadsDir: process.env.UPLOADS_DIR || 'uploads',
   jwtSecret,
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((value) => value.trim()).filter(Boolean),
   taxRate: number('TAX_RATE', 0.15, { min: 0, max: 1 }),
   shippingAmount: number('SHIPPING_STANDARD_AMOUNT', 5.9, { min: 0 }),
@@ -50,6 +51,9 @@ export const env = Object.freeze({
   googleClientId: String(process.env.GOOGLE_CLIENT_ID || '').trim(),
   facebookAppId: String(process.env.FACEBOOK_APP_ID || '').trim(),
   facebookAppSecret: String(process.env.FACEBOOK_APP_SECRET || '').trim(),
+  paypalClientId: String(process.env.PAYPAL_CLIENT_ID || '').trim(),
+  paypalClientSecret: String(process.env.PAYPAL_CLIENT_SECRET || '').trim(),
+  paypalEnv: choice('PAYPAL_ENV', 'sandbox', ['sandbox']),
 })
 
 if (env.checkoutMode === 'production' && (env.paymentProvider === 'mock' || env.invoiceProvider === 'mock')) {

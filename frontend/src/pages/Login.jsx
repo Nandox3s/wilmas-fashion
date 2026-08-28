@@ -6,6 +6,7 @@ import SocialLoginButtons from '../components/SocialLoginButtons'
 import { persistSession } from '../services/apiClient'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const socialLoginEnabled = import.meta.env.VITE_SOCIAL_LOGIN_ENABLED === 'true'
 
 function getRedirectTarget(from, fallback) {
   let target = ''
@@ -25,7 +26,7 @@ function getLoginError(error) {
     'Invalid email format': 'Escribe un correo electrónico válido.',
     'Password required': 'La contraseña es obligatoria.',
     'Invalid email or password': 'El correo o la contraseña no son correctos.',
-    'This account uses social login': 'Esta cuenta usa Google o Facebook. Continúa con el proveedor correspondiente.',
+    'This account uses social login': 'Esta cuenta no tiene acceso por contraseña. Contacta con soporte.',
   }
 
   if (message) return translations[message] || message
@@ -244,12 +245,14 @@ export default function Login() {
             </button>
           </form>
 
-          <SocialLoginButtons
-            disabled={isSubmitting}
-            onGoogle={(credential) => socialLogin('google', { credential })}
-            onFacebook={(accessToken) => socialLogin('facebook', { accessToken })}
-            onFailure={socialFailure}
-          />
+          {socialLoginEnabled && (
+            <SocialLoginButtons
+              disabled={isSubmitting}
+              onGoogle={(credential) => socialLogin('google', { credential })}
+              onFacebook={(accessToken) => socialLogin('facebook', { accessToken })}
+              onFailure={socialFailure}
+            />
+          )}
 
           <p className="auth-switch">
             ¿Aún no tienes cuenta?{' '}

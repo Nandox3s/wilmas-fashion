@@ -45,6 +45,8 @@ function trapFocus(event, container) {
 
 export default function ProductTable({ onChanged }) {
   const [items, setItems] = useState([])
+  const [statusFilter, setStatusFilter] = useState('active')
+  const [statusBusyId, setStatusBusyId] = useState(null)
   const [query, setQuery] = useState('')
   const [appliedQuery, setAppliedQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -71,7 +73,7 @@ export default function ProductTable({ onChanged }) {
     setLoading(true)
     setError('')
     try {
-      const response = await axios.get('/api/products', {
+      const response = await axios.get('/api/products/admin', {
         params: { limit: 100, ...(search ? { search } : {}) },
         headers: authHeaders()
       })
@@ -120,12 +122,14 @@ export default function ProductTable({ onChanged }) {
     setDeleting(true)
     try {
       await axios.delete(`/api/products/${deleteTarget.id}`, { headers: authHeaders() })
-      toast.success(`${deleteTarget.name} fue eliminado`)
+      setItems((current) => current.filter((product) => product.id !== deleteTarget.id))
+      toast.success('Producto eliminado definitivamente.')
       setDeleteTarget(null)
-      await loadProducts(appliedQuery)
       onChanged?.()
     } catch (requestError) {
-      setDeleteError(requestError.response?.data?.error || 'No se pudo eliminar el producto.')
+      setDeleteError(requestError.response?.data?.code === 'PRODUCT_HAS_HISTORY'
+        ? 'Este producto tiene pedidos o facturas asociados y no puede eliminarse. Puedes ocultarlo de la tienda.'
+        : 'No se pudo completar la acción.')
     } finally {
       setDeleting(false)
     }
@@ -140,6 +144,22 @@ export default function ProductTable({ onChanged }) {
   function requestDelete(product) {
     setDeleteError('')
     setDeleteTarget(product)
+  }
+
+  async function updateStatus(product, isActive) {
+    setStatusBusyId(product.id)
+    try {
+      const response = await axios.patch(`/api/products/${product.id}/status`, { isActive }, { headers: authHeaders() })
+      setItems((current) => current.map((item) => item.id === product.id ? { ...item, ...response.data } : item))
+      if (deleteTarget?.id === product.id) setDeleteTarget(null)
+      setDeleteError('')
+      toast.success(isActive ? 'Producto publicado correctamente.' : 'Producto ocultado correctamente.')
+      onChanged?.()
+    } catch {
+      toast.error('No se pudo completar la acción.')
+    } finally {
+      setStatusBusyId(null)
+    }
   }
 
   async function registerSale(event) {
@@ -182,6 +202,13 @@ export default function ProductTable({ onChanged }) {
     }
   }
 
+  const counts = {
+    active: items.filter((product) => product.isActive !== false).length,
+    hidden: items.filter((product) => product.isActive === false).length,
+    all: items.length,
+  }
+  const visibleItems = items.filter((product) => statusFilter === 'all' || (statusFilter === 'active' ? product.isActive !== false : product.isActive === false))
+
   return (
     <section aria-labelledby="inventory-title" className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-4 py-5 sm:px-6">
@@ -192,6 +219,13 @@ export default function ProductTable({ onChanged }) {
             <p className="mt-1 text-sm text-slate-500">
               {loading ? 'Actualizando inventario…' : `${items.length} resultados${appliedQuery ? ` para “${appliedQuery}”` : ''}`}
             </p>
+            <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtrar productos por estado">
+              {[['active', 'Activos'], ['hidden', 'Ocultos'], ['all', 'Todos']].map(([value, label]) => (
+                <button key={value} type="button" onClick={() => setStatusFilter(value)} aria-pressed={statusFilter === value} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${statusFilter === value ? 'bg-[#5B0E2D] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                  {label}: {counts[value]}
+                </button>
+              ))}
+            </div>
           </div>
 
           <form onSubmit={submitSearch} role="search" className="flex w-full flex-col gap-2 sm:flex-row xl:max-w-2xl">
@@ -239,7 +273,7 @@ export default function ProductTable({ onChanged }) {
           <span className="sr-only">Cargando productos</span>
           {[0, 1, 2].map((row) => <div key={row} className="h-20 animate-pulse rounded-2xl bg-slate-100" />)}
         </div>
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <div className="px-6 py-14 text-center">
           <div className="text-lg font-semibold text-slate-800">No hay productos para mostrar</div>
           <p className="mt-2 text-sm text-slate-500">Prueba otra búsqueda o crea el primer producto.</p>
@@ -247,7 +281,7 @@ export default function ProductTable({ onChanged }) {
       ) : (
         <>
           <div className="grid gap-3 p-4 md:hidden">
-            {items.map((product) => (
+            {visibleItems.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -257,6 +291,8 @@ export default function ProductTable({ onChanged }) {
                 onSell={openSale}
                 onEdit={openEdit}
                 onDelete={requestDelete}
+                onStatus={updateStatus}
+                statusBusy={statusBusyId === product.id}
               />
             ))}
           </div>
@@ -273,7 +309,7 @@ export default function ProductTable({ onChanged }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.map((product) => (
+                {visibleItems.map((product) => (
                   <ProductRow
                     key={product.id}
                     product={product}
@@ -283,6 +319,8 @@ export default function ProductTable({ onChanged }) {
                     onSell={openSale}
                     onEdit={openEdit}
                     onDelete={requestDelete}
+                    onStatus={updateStatus}
+                    statusBusy={statusBusyId === product.id}
                   />
                 ))}
               </tbody>
@@ -302,6 +340,7 @@ export default function ProductTable({ onChanged }) {
           error={deleteError}
           onCancel={() => { setDeleteTarget(null); setDeleteError('') }}
           onConfirm={deleteProduct}
+          onHide={() => updateStatus(deleteTarget, false)}
         />
       )}
 
@@ -320,7 +359,7 @@ export default function ProductTable({ onChanged }) {
   )
 }
 
-function ProductRow({ product, canManage, canDelete, canSell, onSell, onEdit, onDelete }) {
+function ProductRow({ product, canManage, canDelete, canSell, onSell, onEdit, onDelete, onStatus, statusBusy }) {
   const sizes = parseSizes(product.sizes ?? product.size)
   return (
     <tr className="transition hover:bg-slate-50/80">
@@ -329,6 +368,7 @@ function ProductRow({ product, canManage, canDelete, canSell, onSell, onEdit, on
           <ProductThumbnail product={product} />
           <div className="min-w-0">
             <div className="font-semibold text-slate-900">{product.name}</div>
+            <StatusBadge active={product.isActive !== false} />
             <div className="mt-0.5 text-xs text-slate-500">{product.brand || 'Sin marca'} · {product.sku}</div>
             <div className="mt-1 text-xs text-slate-400">{product.color || 'Sin color'} · {sizes.join(', ') || 'Sin talla'}</div>
           </div>
@@ -344,6 +384,7 @@ function ProductRow({ product, canManage, canDelete, canSell, onSell, onEdit, on
         <div className="flex justify-end gap-2">
           {canSell && Number(product.stock) > 0 && <ActionButton onClick={() => onSell(product)} label={`Registrar venta de ${product.name}`}>Vender</ActionButton>}
           {canManage && <ActionButton onClick={() => onEdit(product)} label={`Editar ${product.name}`}>Editar</ActionButton>}
+          {canDelete && <ActionButton disabled={statusBusy} onClick={() => onStatus(product, product.isActive === false)} label={`${product.isActive === false ? 'Mostrar' : 'Ocultar'} ${product.name}`}>{product.isActive === false ? 'Mostrar' : 'Ocultar'}</ActionButton>}
           {canDelete && <ActionButton danger onClick={() => onDelete(product)} label={`Eliminar ${product.name}`}>Eliminar</ActionButton>}
         </div>
       </td>
@@ -351,7 +392,7 @@ function ProductRow({ product, canManage, canDelete, canSell, onSell, onEdit, on
   )
 }
 
-function ProductCard({ product, canManage, canDelete, canSell, onSell, onEdit, onDelete }) {
+function ProductCard({ product, canManage, canDelete, canSell, onSell, onEdit, onDelete, onStatus, statusBusy }) {
   const sizes = parseSizes(product.sizes ?? product.size)
   return (
     <article className="rounded-2xl border border-slate-200 p-4">
@@ -359,6 +400,7 @@ function ProductCard({ product, canManage, canDelete, canSell, onSell, onEdit, o
         <ProductThumbnail product={product} />
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-slate-900">{product.name}</h3>
+          <StatusBadge active={product.isActive !== false} />
           <p className="mt-0.5 text-xs text-slate-500">{product.brand || 'Sin marca'} · {product.sku}</p>
           <p className="mt-1 text-xs text-slate-500">{product.color} · {sizes.join(', ') || 'Sin talla'}</p>
         </div>
@@ -372,6 +414,7 @@ function ProductCard({ product, canManage, canDelete, canSell, onSell, onEdit, o
         <div className="flex flex-wrap justify-end gap-2">
           {canSell && Number(product.stock) > 0 && <ActionButton onClick={() => onSell(product)} label={`Registrar venta de ${product.name}`}>Vender</ActionButton>}
           {canManage && <ActionButton onClick={() => onEdit(product)} label={`Editar ${product.name}`}>Editar</ActionButton>}
+          {canDelete && <ActionButton disabled={statusBusy} onClick={() => onStatus(product, product.isActive === false)} label={`${product.isActive === false ? 'Mostrar' : 'Ocultar'} ${product.name}`}>{product.isActive === false ? 'Mostrar' : 'Ocultar'}</ActionButton>}
           {canDelete && <ActionButton danger onClick={() => onDelete(product)} label={`Eliminar ${product.name}`}>Eliminar</ActionButton>}
         </div>
       </div>
@@ -397,23 +440,28 @@ function StockBadge({ stock }) {
   return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${color}`}>{value} uds.</span>
 }
 
-function ActionButton({ children, label, danger = false, onClick }) {
+function StatusBadge({ active }) {
+  return <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{active ? 'ACTIVO' : 'OCULTO'}</span>
+}
+
+function ActionButton({ children, label, danger = false, onClick, disabled = false }) {
   return (
-    <button type="button" onClick={onClick} aria-label={label} className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 ${danger ? 'text-red-700 hover:bg-red-50 focus-visible:ring-red-600' : 'text-slate-700 hover:bg-slate-100 focus-visible:ring-[#5B0E2D]'}`}>
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 disabled:opacity-50 ${danger ? 'text-red-700 hover:bg-red-50 focus-visible:ring-red-600' : 'text-slate-700 hover:bg-slate-100 focus-visible:ring-[#5B0E2D]'}`}>
       {children}
     </button>
   )
 }
 
-function DeleteDialog({ product, busy, error, onCancel, onConfirm }) {
+function DeleteDialog({ product, busy, error, onCancel, onConfirm, onHide }) {
   const cancelRef = useRef(null)
   return (
-    <Dialog title="Eliminar producto" description={`Esta acción eliminará “${product.name}” del inventario y no se puede deshacer.`} busy={busy} onClose={onCancel} initialFocusRef={cancelRef}>
+    <Dialog title="Eliminar producto" description={`¿Seguro que deseas eliminar “${product.name}”? Esta acción es permanente si el producto no tiene historial.`} busy={busy} onClose={onCancel} initialFocusRef={cancelRef}>
       {error && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button ref={cancelRef} type="button" onClick={onCancel} disabled={busy} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B0E2D] disabled:opacity-50">Cancelar</button>
+        {error && product.isActive !== false && <button type="button" onClick={onHide} disabled={busy} className="rounded-xl border border-[#5B0E2D] px-4 py-2.5 text-sm font-semibold text-[#5B0E2D] disabled:opacity-50">Ocultar producto</button>}
         <button type="button" onClick={onConfirm} disabled={busy} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
-          {busy ? 'Eliminando…' : 'Eliminar producto'}
+          {busy ? 'Eliminando…' : 'Eliminar definitivamente'}
         </button>
       </div>
     </Dialog>

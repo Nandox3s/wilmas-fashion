@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '../utils/cart'
 
-export default function CartSummary({ pricing, shipping = pricing.standardShipping, ctaTo, ctaLabel = 'Continuar al checkout', onSubmit, formId, disabled = false, processing = false, children }) {
+export default function CartSummary({ pricing, shipping = pricing.standardShipping, ctaTo, ctaLabel = 'Continuar al checkout', onSubmit, formId, disabled = false, processing = false, hideCta = false, children }) {
   const total = pricing.subtotal + shipping
   const buttonClasses = 'button-primary mt-5 w-full'
 
@@ -38,7 +38,7 @@ export default function CartSummary({ pricing, shipping = pricing.standardShippi
 
       {children}
 
-      {ctaTo ? (
+      {!hideCta && (ctaTo ? (
         <Link to={ctaTo} className={buttonClasses}>{ctaLabel}</Link>
       ) : (
         <button type="submit" form={formId} onClick={onSubmit} disabled={disabled || processing} className={buttonClasses}>
@@ -46,11 +46,11 @@ export default function CartSummary({ pricing, shipping = pricing.standardShippi
             <><span className="spinner" aria-hidden="true" /> Procesando…</>
           ) : ctaLabel}
         </button>
-      )}
+      ))}
 
       <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-white/60">
         <svg aria-hidden="true" viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M7 10V8a5 5 0 0 1 10 0v2m-11 0h12v10H6V10Z"/></svg>
-        Tus datos de tarjeta nunca se guardan en el navegador.
+        Tus datos personales se transmiten de forma segura.
       </p>
     </aside>
   )

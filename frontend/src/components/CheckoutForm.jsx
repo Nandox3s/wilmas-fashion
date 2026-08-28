@@ -1,4 +1,3 @@
-import { formatCardNumber, formatExpiry, onlyDigits } from '../utils/checkout'
 import { formatCurrency } from '../utils/cart'
 
 function Field({ id, label, error, hint, className = '', ...inputProps }) {
@@ -38,13 +37,11 @@ function SectionHeading({ step, title, copy }) {
 export default function CheckoutForm({ form, errors, touched, onChange, deliveryOptions }) {
   const visibleError = (field) => touched[field] ? errors[field] : ''
   const update = (field, value, markTouched = false) => onChange(field, value, markTouched)
-  const cardDigits = onlyDigits(form.cardNumber).padEnd(16, '•')
-  const cardDisplay = cardDigits.match(/.{1,4}/g)?.join(' ') || '•••• •••• •••• ••••'
 
   return (
     <div className="space-y-5">
       <section className="checkout-section">
-        <SectionHeading step="1" title="Datos de contacto" copy="Los usaremos únicamente para coordinar esta demostración de pedido." />
+        <SectionHeading step="1" title="Datos de contacto" copy="Usaremos estos datos para mantenerte informado sobre tu pedido." />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="firstName" label="Nombre" value={form.firstName} onChange={(event) => update('firstName', event.target.value)} onBlur={() => update('firstName', form.firstName, true)} error={visibleError('firstName')} autoComplete="given-name" />
           <Field id="lastName" label="Apellido" value={form.lastName} onChange={(event) => update('lastName', event.target.value)} onBlur={() => update('lastName', form.lastName, true)} error={visibleError('lastName')} autoComplete="family-name" />
@@ -55,7 +52,7 @@ export default function CheckoutForm({ form, errors, touched, onChange, delivery
       </section>
 
       <section className="checkout-section">
-        <SectionHeading step="2" title="Datos de facturación" copy="Estos datos se usarán para emitir factura electrónica cuando el proveedor esté activo." />
+        <SectionHeading step="2" title="Datos de facturación" copy="Usaremos estos datos para emitir tu factura electrónica." />
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="billingIdentificationType" className="field-label">Tipo de identificación</label>
@@ -136,17 +133,14 @@ export default function CheckoutForm({ form, errors, touched, onChange, delivery
       </section>
 
       <section className="checkout-section">
-        <SectionHeading step="5" title="Método de pago" copy="Este proyecto no tiene pasarela bancaria. Ninguna opción genera un cobro real." />
-        <div className="rounded-2xl border border-[#a86c27]/25 bg-[#fff8e8] p-4 text-sm leading-6 text-[#70501f]" role="note">
-          <strong>Modo demostración:</strong> los datos solo se validan en memoria y se descartan al terminar. No se envían al backend ni se guardan en localStorage.
-        </div>
-        <fieldset className="mt-4" aria-describedby={visibleError('paymentMethod') ? 'payment-error' : undefined}>
+        <SectionHeading step="5" title="Método de pago" />
+        <fieldset aria-describedby={visibleError('paymentMethod') ? 'payment-error' : undefined}>
           <legend className="sr-only">Elige un método de pago</legend>
           <div className="grid gap-3 sm:grid-cols-2">
-            {([
-              { id: 'card', name: 'Tarjeta de demostración', copy: 'Validación visual, sin cargo bancario.' },
-              { id: 'delivery', name: 'Pago al recibir', copy: 'Opción ilustrativa para el flujo demo.' },
-            ].concat(import.meta.env.VITE_CHECKOUT_MODE !== 'demo' ? [{ id: 'payphone', name: 'Pago con PayPhone', copy: 'Redirigirás a la cajita segura de PayPhone.' }] : [])).map((option) => (
+            {[
+              { id: 'cash_on_delivery', name: 'Pago al recibir', copy: 'Paga al momento de recibir tu pedido.' },
+              { id: 'paypal', name: 'PayPal', copy: 'Paga de forma segura con tu cuenta PayPal.' },
+            ].map((option) => (
               <label key={option.id} className={`cursor-pointer rounded-2xl border p-4 transition ${form.paymentMethod === option.id ? 'border-[#6d1738] bg-[#fbf3f6] ring-2 ring-[#6d1738]/10' : 'border-[#39232c]/[0.12] bg-white hover:border-[#6d1738]/35'}`}>
                 <input type="radio" name="paymentMethod" value={option.id} checked={form.paymentMethod === option.id} onChange={() => update('paymentMethod', option.id, true)} className="sr-only" />
                 <span className="block font-bold text-[#3b2530]">{option.name}</span>
@@ -157,32 +151,6 @@ export default function CheckoutForm({ form, errors, touched, onChange, delivery
           {visibleError('paymentMethod') && <p id="payment-error" role="alert" className="mt-2 text-sm font-medium text-[#aa294b]">{visibleError('paymentMethod')}</p>}
         </fieldset>
 
-        {form.paymentMethod === 'card' && (
-          <div className="mt-5 grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-            <div className="relative min-h-52 overflow-hidden rounded-[1.5rem] bg-[linear-gradient(145deg,#6d1738,#2a131d)] p-5 text-white shadow-[0_20px_50px_rgba(60,15,34,0.24)]" aria-label="Vista previa de tarjeta de demostración">
-              <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full border border-white/10" />
-              <div className="absolute -right-5 -top-5 h-32 w-32 rounded-full bg-[#d4af37]/[0.12]" />
-              <div className="relative flex h-full flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="font-serif text-xl font-semibold">Wilmas</span>
-                  <span className="rounded-full border border-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#f0d381]">Demo</span>
-                </div>
-                <p className="mt-10 font-mono text-lg tracking-[0.12em] sm:text-xl">{cardDisplay}</p>
-                <div className="mt-7 flex items-end justify-between gap-4 text-xs uppercase tracking-[0.12em] text-white/60">
-                  <span className="min-w-0 truncate"><small className="block text-[9px]">Titular</small><strong className="mt-1 block truncate text-white">{form.cardName || 'TU NOMBRE'}</strong></span>
-                  <span className="shrink-0"><small className="block text-[9px]">Vence</small><strong className="mt-1 block text-white">{form.expiry || 'MM/AA'}</strong></span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field id="cardName" label="Nombre del titular" value={form.cardName} onChange={(event) => update('cardName', event.target.value)} onBlur={() => update('cardName', form.cardName, true)} error={visibleError('cardName')} autoComplete="cc-name" className="sm:col-span-2" />
-              <Field id="cardNumber" label="Número de tarjeta" value={form.cardNumber} onChange={(event) => update('cardNumber', formatCardNumber(event.target.value))} onBlur={() => update('cardNumber', form.cardNumber, true)} error={visibleError('cardNumber')} inputMode="numeric" autoComplete="cc-number" placeholder="4242 4242 4242 4242" maxLength="19" className="sm:col-span-2" hint="Puedes usar 4242 4242 4242 4242 para probar." />
-              <Field id="expiry" label="Vencimiento" value={form.expiry} onChange={(event) => update('expiry', formatExpiry(event.target.value))} onBlur={() => update('expiry', form.expiry, true)} error={visibleError('expiry')} inputMode="numeric" autoComplete="cc-exp" placeholder="MM/AA" maxLength="5" />
-              <Field id="cvv" type="password" label="CVV" value={form.cvv} onChange={(event) => update('cvv', onlyDigits(event.target.value).slice(0, 4))} onBlur={() => update('cvv', form.cvv, true)} error={visibleError('cvv')} inputMode="numeric" autoComplete="cc-csc" placeholder="123" maxLength="4" />
-            </div>
-          </div>
-        )}
       </section>
     </div>
   )

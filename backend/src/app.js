@@ -8,7 +8,7 @@ import { env } from './config/env.js'
 import { prisma as defaultPrisma } from './config/prisma.js'
 import { authenticateToken } from './middleware/authMiddleware.js'
 import { authorizeRoles } from './middleware/roleMiddleware.js'
-import { errorMiddleware, notFoundMiddleware } from './middleware/errorMiddleware.js'
+import { errorMiddleware, notFoundMiddleware, requestContextMiddleware } from './middleware/errorMiddleware.js'
 import { authRoutes } from './routes/authRoutes.js'
 import { invoiceRoutes } from './routes/invoiceRoutes.js'
 import { orderRoutes } from './routes/orderRoutes.js'
@@ -29,6 +29,7 @@ import { ConsoleEmailProvider } from './providers/email/ConsoleEmailProvider.js'
 import { SesEmailProvider } from './providers/email/SesEmailProvider.js'
 import { getInvoiceProvider } from './providers/invoices/getInvoiceProvider.js'
 import { getPaymentProvider } from './providers/payments/getPaymentProvider.js'
+import { PayPalProvider } from './providers/payments/PayPalProvider.js'
 import { getShippingProvider } from './providers/shipping/getShippingProvider.js'
 import { LocalStorageProvider } from './providers/storage/LocalStorageProvider.js'
 import { S3StorageProvider } from './providers/storage/S3StorageProvider.js'
@@ -47,6 +48,7 @@ function providers() {
   const uploadsRoot = resolve(env.uploadsDir)
   return {
     payment: getPaymentProvider(),
+    paypal: new PayPalProvider(),
     invoice: getInvoiceProvider(),
     shipping: getShippingProvider(),
     storage: env.storageProvider === 'local' ? new LocalStorageProvider(uploadsRoot) : new S3StorageProvider(),
@@ -75,10 +77,11 @@ export function createApp({ prisma = defaultPrisma, providerOverrides = {}, mock
     : process.env.INVOICE_QUEUE_PROVIDER === 'local'
       ? new LocalInvoiceQueue(createInvoiceWorker(services.invoices))
       : new DbJobQueue(prisma)
-  services.payments = new PaymentService(prisma, selected.payment, emailService, invoiceQueue)
+  services.payments = new PaymentService(prisma, selected.payment, emailService, invoiceQueue, selected.paypal)
   const authenticate = authenticateToken(prisma)
 
   app.disable('x-powered-by')
+  app.use(requestContextMiddleware)
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
   app.use(cors({ origin(origin, callback) { callback(null, !origin || env.corsOrigins.includes(origin)) }, credentials: false }))
   app.use(express.json({ limit: '1mb' }))

@@ -207,8 +207,8 @@ test('PayPhone mock routes are gated by environment and production mode', async 
   assert.equal((await request(appProduction).post('/mock-payphone/button/Prepare').send({})).status, 404)
 })
 
-test('frontend mock checkout route is excluded from production build settings', async () => {
+test('frontend mock checkout route is not shipped', async () => {
   const source = await readFile(new URL('../../frontend/src/App.jsx', import.meta.url), 'utf8')
-  assert.match(source, /import\.meta\.env\.MODE !== 'production'/)
-  assert.match(source, /\/mock-payphone\/checkout/)
+  assert.doesNotMatch(source, /\/mock-payphone\/checkout/)
+  await assert.rejects(() => readFile(new URL('../../frontend/src/pages/MockPayphoneCheckout.jsx', import.meta.url), 'utf8'))
 })

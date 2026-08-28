@@ -15,10 +15,11 @@ import {
 } from '../services/orderService'
 import { authConfig } from '../services/apiClient'
 import { formatCurrency } from '../utils/cart'
+import { orderStatusLabel, paymentMethodLabel } from '../utils/orders'
+import toast from 'react-hot-toast'
+import { friendlyApiError } from '../services/apiClient'
 
-function sanitizeError(err) {
-  return err?.response?.data?.error || err?.message || 'Error inesperado'
-}
+const sanitizeError = (err) => friendlyApiError(err, 'No se pudo completar la operación.')
 
 function Section({ title, children }) {
   return (
@@ -71,6 +72,8 @@ export default function AdminOrderDetail() {
   }
 
   async function downloadDocument(type) {
+    if (busy) return
+    setBusy(`download-${type}`); setActionError('')
     try {
       const blob = type === 'xml' ? await getOrderInvoiceXml(order.id) : await getOrderInvoicePdf(order.id)
       const ext = type === 'xml' ? 'xml' : 'pdf'
@@ -79,7 +82,11 @@ export default function AdminOrderDetail() {
       a.href = url; a.download = `WilmasFashion-${order.reference}.${ext}`
       document.body.appendChild(a); a.click(); a.remove()
       window.URL.revokeObjectURL(url)
-    } catch (err) { setActionError(sanitizeError(err)) }
+      toast.success('Factura descargada.')
+    } catch (err) {
+      const message = err?.response?.status === 404 ? 'El archivo de la factura no está disponible.' : friendlyApiError(err, 'No se pudo descargar la factura.')
+      setActionError(message); toast.error(message)
+    } finally { setBusy('') }
   }
 
   async function registerShipment(e) {
@@ -112,7 +119,8 @@ export default function AdminOrderDetail() {
       <div className="mx-auto max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#5B0E2D]">Admin · Pedido</p>
         <h1 className="mt-2 font-serif text-3xl text-slate-900">{order.reference}</h1>
-        <p className="mt-1 text-sm text-slate-500">Estado: <strong>{order.status}</strong></p>
+        <p className="mt-1 text-sm text-slate-500">Estado: <strong>{orderStatusLabel(order)}</strong></p>
+        <p className="mt-1 text-sm text-slate-500">Método de pago: <strong>{paymentMethodLabel(order)}</strong></p>
 
         {actionError && (
           <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -138,8 +146,8 @@ export default function AdminOrderDetail() {
               <Field label="Número de autorización" value={invoice.authorizationNumber} />
               {invoice.status === 'AUTHORIZED' && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100" onClick={() => downloadDocument('pdf')}>Descargar PDF</button>
-                  <button className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100" onClick={() => downloadDocument('xml')}>Descargar XML</button>
+                  <button disabled={Boolean(busy)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100 disabled:opacity-50" onClick={() => downloadDocument('pdf')}>{busy === 'download-pdf' ? 'Descargando factura…' : 'Descargar PDF'}</button>
+                  <button disabled={Boolean(busy)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100 disabled:opacity-50" onClick={() => downloadDocument('xml')}>{busy === 'download-xml' ? 'Descargando factura…' : 'Descargar XML'}</button>
                 </div>
               )}
               {['PENDING', 'ERROR', 'FAILED'].includes(invoice.status) && (

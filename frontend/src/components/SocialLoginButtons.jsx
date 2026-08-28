@@ -10,19 +10,35 @@ function loadFacebookSdk() {
   if (window.FB) return Promise.resolve(window.FB)
   if (facebookSdkPromise) return facebookSdkPromise
   facebookSdkPromise = new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      facebookSdkPromise = null
+      reject(new Error('FACEBOOK_SDK_TIMEOUT'))
+    }, 12000)
     window.fbAsyncInit = () => {
       window.FB.init({ appId: facebookAppId, cookie: false, xfbml: false, version: 'v23.0' })
+      window.clearTimeout(timeout)
       resolve(window.FB)
     }
     const existing = document.getElementById('facebook-jssdk')
-    if (existing) return
+    if (existing) {
+      existing.addEventListener('error', () => {
+        window.clearTimeout(timeout)
+        facebookSdkPromise = null
+        reject(new Error('FACEBOOK_SDK_FAILED'))
+      }, { once: true })
+      return
+    }
     const script = document.createElement('script')
     script.id = 'facebook-jssdk'
     script.async = true
     script.defer = true
     script.crossOrigin = 'anonymous'
     script.src = 'https://connect.facebook.net/es_LA/sdk.js'
-    script.onerror = () => { facebookSdkPromise = null; reject(new Error('FACEBOOK_SDK_FAILED')) }
+    script.onerror = () => {
+      window.clearTimeout(timeout)
+      facebookSdkPromise = null
+      reject(new Error('FACEBOOK_SDK_FAILED'))
+    }
     document.head.appendChild(script)
   })
   return facebookSdkPromise
@@ -55,11 +71,16 @@ export default function SocialLoginButtons({ disabled, onGoogle, onFacebook, onF
     setFacebookLoading(true)
     try {
       const FB = await loadFacebookSdk()
-      FB.login((response) => {
+      try {
+        FB.login((response) => {
+          setFacebookLoading(false)
+          if (response.authResponse?.accessToken) onFacebook(response.authResponse.accessToken)
+          else onFailure('facebook', true)
+        }, { scope: 'public_profile,email', return_scopes: true })
+      } catch {
         setFacebookLoading(false)
-        if (response.authResponse?.accessToken) onFacebook(response.authResponse.accessToken)
-        else onFailure('facebook', true)
-      }, { scope: 'public_profile,email', return_scopes: true })
+        onFailure('facebook')
+      }
     } catch {
       setFacebookLoading(false)
       onFailure('facebook')
@@ -71,7 +92,11 @@ export default function SocialLoginButtons({ disabled, onGoogle, onFacebook, onF
       <div className="auth-divider"><span>o</span></div>
       <GoogleButton disabled={disabled} onCredential={onGoogle} onFailure={onFailure} />
       <button type="button" className="social-button social-button--facebook" onClick={startFacebook} disabled={disabled || facebookLoading || !facebookAppId} title={!facebookAppId ? 'Configura VITE_FACEBOOK_APP_ID' : undefined}>
-        <span className="social-facebook-mark" aria-hidden="true">f</span>
+        {facebookLoading ? <span className="social-provider-spinner" aria-hidden="true" /> : (
+          <svg className="social-facebook-mark" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M13.7 22v-9h3l.45-3.5H13.7V7.27c0-1.01.28-1.7 1.73-1.7h1.85V2.44c-.32-.04-1.42-.14-2.7-.14-2.67 0-4.5 1.63-4.5 4.62V9.5H7.05V13h3.03v9h3.62Z" />
+          </svg>
+        )}
         {facebookLoading ? 'Conectando con Facebook…' : 'Continuar con Facebook'}
       </button>
     </div>

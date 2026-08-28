@@ -598,9 +598,13 @@ svg {
 .social-google {
   display: flex;
   justify-content: center;
-  min-height: 44px;
+  min-height: 48px;
   overflow: hidden;
+  border-radius: 999px;
 }
+
+.social-google > div,
+.social-google iframe { width: 100% !important; }
 
 .social-google--disabled {
   opacity: 0.55;
@@ -610,7 +614,7 @@ svg {
 .social-button {
   display: flex;
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 3rem;
   align-items: center;
   justify-content: center;
   gap: 0.65rem;
@@ -635,22 +639,38 @@ svg {
 }
 
 .social-button--facebook {
-  border-color: rgba(24, 119, 242, 0.3);
-  color: #145dbf;
+  border-color: #1877f2;
+  background: #1877f2;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(24, 119, 242, 0.18);
 }
 
 .social-facebook-mark {
-  display: grid;
-  width: 1.25rem;
-  height: 1.25rem;
-  place-items: end center;
-  border-radius: 50%;
-  background: #1877f2;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
   color: #fff;
-  font-family: Arial, sans-serif;
-  font-size: 1.05rem;
-  font-weight: 800;
-  line-height: 1;
+}
+
+.social-button--facebook:hover:not(:disabled) {
+  border-color: #0f65d8;
+  background: #166fe5;
+  box-shadow: 0 10px 24px rgba(24, 119, 242, 0.28);
+}
+
+.social-button:focus-visible,
+.social-google:focus-within {
+  outline: 3px solid rgba(91, 14, 45, 0.24);
+  outline-offset: 3px;
+}
+
+.social-provider-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-top-color: #fff;
+  border-radius: 999px;
+  animation: button-spin 700ms linear infinite;
 }
 
 .auth-switch {

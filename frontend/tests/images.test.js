@@ -25,3 +25,23 @@ test('product views contain no broken placeholder or stock-photo host', async ()
   const source = (await Promise.all(files.map((file) => readFile(new URL(file, import.meta.url), 'utf8')))).join('\n')
   assert.doesNotMatch(source, /placeholder\.svg|unsplash|pexels|pixabay|placehold\.co/i)
 })
+
+test('public product views do not render internal SKU or reference values', async () => {
+  const publicViews = [
+    '../src/components/ProductCard.jsx',
+    '../src/components/FeaturedProducts.jsx',
+    '../src/components/ProductOptionsModal.jsx',
+    '../src/components/ProductConfigurator.jsx',
+    '../src/pages/Home.jsx',
+    '../src/pages/Catalog.jsx',
+    '../src/pages/Product.jsx',
+    '../src/pages/ProductsOverview.jsx',
+  ]
+  const source = (await Promise.all(publicViews.map((file) => readFile(new URL(file, import.meta.url), 'utf8')))).join('\n')
+  assert.doesNotMatch(source, /product\.sku|Referencia\s*\{|SKU\s*[:{]/i)
+
+  const adminSource = await readFile(new URL('../src/components/ProductModal.jsx', import.meta.url), 'utf8')
+  const cartSource = await readFile(new URL('../src/components/CartItem.jsx', import.meta.url), 'utf8')
+  assert.match(adminSource, /SKU/)
+  assert.match(cartSource, /item\.sku/)
+})

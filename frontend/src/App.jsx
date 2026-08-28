@@ -18,17 +18,6 @@ const MyOrders = lazy(() => import('./pages/MyOrders'))
 const OrderDetail = lazy(() => import('./pages/OrderDetail'))
 const PaymentResult = lazy(() => import('./pages/PaymentResult'))
 
-// Mock checkout only available outside production builds
-const isMockEnabled =
-  import.meta.env.MODE !== 'production' &&
-  (import.meta.env.VITE_CHECKOUT_MODE === 'mock' ||
-    import.meta.env.VITE_CHECKOUT_MODE === 'sandbox' ||
-    import.meta.env.DEV)
-
-const MockPayphoneCheckout = isMockEnabled
-  ? lazy(() => import('./pages/MockPayphoneCheckout'))
-  : null
-
 function hasValidSession() {
   return Boolean(sessionPayload())
 }
@@ -78,9 +67,6 @@ export default function App() {
             <Route path="cart" element={<Cart />} />
             <Route path="checkout" element={<Checkout />} />
             <Route path="payment-result" element={<PaymentResult />} />
-            {MockPayphoneCheckout && (
-              <Route path="/mock-payphone/checkout" element={<MockPayphoneCheckout />} />
-            )}
             <Route path="orders" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><MyOrders /></PrivateRoute>} />
             <Route path="orders/:reference" element={<PrivateRoute allowedRoles={['USER', 'ADMIN']}><OrderDetail /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />

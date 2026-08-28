@@ -29,6 +29,7 @@ export default function Catalog() {
   const [source, setSource] = useState('local')
   const [selectedBrand, setSelectedBrand] = useState('Todas')
   const [selectedFamily, setSelectedFamily] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const query = searchParams.get('q') || ''
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function Catalog() {
       setLoading(false)
     })
     return () => { active = false }
-  }, [])
+  }, [reloadKey])
 
   useEffect(() => {
     setSelectedBrand('Todas')
@@ -149,10 +150,11 @@ export default function Catalog() {
           </div>
         </div>
 
-        {source === 'local' && !loading && (
+        {source === 'unavailable' && !loading && (
           <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[#a86c27]/20 bg-[#fff9ed] px-4 py-3 text-sm leading-6 text-[#715022]" role="status">
             <svg aria-hidden="true" viewBox="0 0 24 24" className="mt-0.5 h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>
-            Mostramos el catálogo disponible. La sincronización de inventario se retomará cuando la API esté conectada.
+            <span className="flex-1">No pudimos conectar con el servidor. Revisa tu conexión.</span>
+            <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="shrink-0 rounded-lg border border-[#a86c27]/30 px-3 py-1.5 font-semibold hover:bg-[#fff1d6]">Reintentar</button>
           </div>
         )}
 
@@ -160,7 +162,7 @@ export default function Catalog() {
           <div className="mt-8 grid grid-cols-1 gap-5 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Cargando productos">
             {Array.from({ length: 8 }, (_, index) => <ProductSkeleton key={index} />)}
           </div>
-        ) : families.length > 0 ? (
+        ) : source === 'unavailable' ? null : families.length > 0 ? (
           <div className="mt-8 grid grid-cols-1 gap-5 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {families.map((family) => (
               <ProductCard key={family.key} family={family} onQuickAdd={setSelectedFamily} />

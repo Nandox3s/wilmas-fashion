@@ -1,24 +1,28 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { shouldClearSession } from './services/apiClient'
+import { API_TIMEOUT_MS, friendlyApiError } from './services/apiClient'
+import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 import { CartProvider } from './context/CartContext'
 import toast, { Toaster } from 'react-hot-toast'
 import axios from 'axios'
 
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE || ''
+const configuredApiBase = import.meta.env.VITE_API_BASE || ''
+// Existing service paths already start with /api; keep /api same-origin without duplicating it.
+axios.defaults.baseURL = configuredApiBase === '/api' ? '' : configuredApiBase
+axios.defaults.timeout = API_TIMEOUT_MS
 axios.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401 && localStorage.getItem('token')) {
+    if (shouldClearSession(err, localStorage.getItem('token'))) {
       ;['token', 'role', 'wf_user', 'user'].forEach((key) => localStorage.removeItem(key))
-      toast.error('Tu sesión expiró. Inicia sesión nuevamente.')
+      toast.error('Tu sesión ha expirado. Inicia sesión nuevamente.')
       if (window.location.pathname !== '/login') window.location.assign('/login')
     }
-    if (err.config?.showGlobalErrorToast) {
-      const msg = err.response?.data?.error || err.message || 'Error de red'
-      toast.error(msg)
-    }
+    if (err.response?.status === 403 && err.config?.showGlobalErrorToast) toast.error('No tienes permisos para realizar esta acción.')
+    else if (err.config?.showGlobalErrorToast) toast.error(friendlyApiError(err))
     return Promise.reject(err)
   }
 )
@@ -26,7 +30,7 @@ axios.interceptors.response.use(
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <CartProvider>
-      <App />
+      <ErrorBoundary><App /></ErrorBoundary>
       <Toaster
         position="top-right"
         toastOptions={{

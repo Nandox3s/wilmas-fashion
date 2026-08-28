@@ -1,12 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Navbar from '../components/Navbar'
-import ProductModal from '../components/ProductModal'
+import ProductTable from '../components/ProductTable'
 import { getAdminOrders } from '../services/orderService'
 import { formatCurrency } from '../utils/cart'
-import { getProductImageUrl } from '../data/products'
+import { orderStatusLabel, paymentMethodLabel } from '../utils/orders'
 
 function authHeaders() {
   const token = localStorage.getItem('token')
@@ -24,25 +24,6 @@ function getSessionUserId() {
   } catch {
     return null
   }
-}
-
-function parseSizes(value) {
-  if (Array.isArray(value)) return value
-  if (typeof value !== 'string' || !value.trim()) return []
-  try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : [value]
-  } catch {
-    return value.split(',').map((size) => size.trim()).filter(Boolean)
-  }
-}
-
-function resolveImageUrl(image) {
-  return getProductImageUrl({ image }) || ''
-}
-
-function formatMoney(value) {
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'USD' }).format(Number(value) || 0)
 }
 
 function trapFocus(event, container) {
@@ -63,18 +44,12 @@ function trapFocus(event, container) {
 export default function Admin() {
   const role = localStorage.getItem('role')
   const currentUserId = getSessionUserId()
-  const [products, setProducts] = useState([])
   const [users, setUsers] = useState([])
   const [orders, setOrders] = useState([])
-  const [productQuery, setProductQuery] = useState('')
-  const [productsLoading, setProductsLoading] = useState(true)
   const [usersLoading, setUsersLoading] = useState(true)
   const [ordersLoading, setOrdersLoading] = useState(true)
-  const [productsError, setProductsError] = useState('')
   const [usersError, setUsersError] = useState('')
   const [ordersError, setOrdersError] = useState('')
-  const [showProductModal, setShowProductModal] = useState(false)
-  const [editing, setEditing] = useState(null)
   const [updatingRoleId, setUpdatingRoleId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -82,23 +57,9 @@ export default function Admin() {
 
   useEffect(() => {
     if (role !== 'ADMIN') return
-    loadProducts()
     loadUsers()
     loadOrders()
   }, [role])
-
-  async function loadProducts() {
-    setProductsLoading(true)
-    setProductsError('')
-    try {
-      const response = await axios.get('/api/products', { params: { limit: 100 }, headers: authHeaders() })
-      setProducts(Array.isArray(response.data?.items) ? response.data.items : [])
-    } catch (requestError) {
-      setProductsError(requestError.response?.data?.error || 'No se pudieron cargar los productos.')
-    } finally {
-      setProductsLoading(false)
-    }
-  }
 
   async function loadUsers() {
     setUsersLoading(true)
@@ -161,23 +122,6 @@ export default function Admin() {
     }
   }
 
-  function closeProductModal() {
-    setShowProductModal(false)
-    setEditing(null)
-  }
-
-  function productSaved() {
-    closeProductModal()
-    loadProducts()
-  }
-
-  const visibleProducts = useMemo(() => {
-    const query = productQuery.trim().toLocaleLowerCase('es')
-    if (!query) return products
-    return products.filter((product) => [product.name, product.sku, product.brand, product.category]
-      .some((value) => String(value || '').toLocaleLowerCase('es').includes(query)))
-  }, [productQuery, products])
-
   if (role !== 'ADMIN') {
     return (
       <div className="min-h-screen bg-slate-100">
@@ -204,38 +148,10 @@ export default function Admin() {
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Productos, usuarios y pedidos</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">Gestiona el inventario, permisos y pedidos con los datos actuales de la API.</p>
           </div>
-          <button type="button" onClick={() => { setEditing(null); setShowProductModal(true) }} className="self-start rounded-xl bg-[#5B0E2D] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#74143b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B0E2D] focus-visible:ring-offset-2 sm:self-auto">Nuevo producto</button>
         </div>
 
         <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <section aria-labelledby="admin-products-title" className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 id="admin-products-title" className="text-xl font-bold text-slate-950">Inventario</h2>
-                  <p className="mt-0.5 text-xs text-slate-500">{visibleProducts.length} de {products.length} productos</p>
-                </div>
-                <div className="flex gap-2">
-                  <label htmlFor="admin-product-search" className="sr-only">Filtrar productos</label>
-                  <input id="admin-product-search" type="search" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Filtrar productos" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#5B0E2D] focus:ring-2 focus:ring-[#5B0E2D]/10 sm:w-48" />
-                  <button type="button" onClick={loadProducts} disabled={productsLoading} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B0E2D] disabled:opacity-50" aria-label="Actualizar productos">Actualizar</button>
-                </div>
-              </div>
-            </div>
-
-            {productsError && <ErrorBanner message={productsError} onRetry={loadProducts} />}
-            {productsLoading ? (
-              <LoadingRows label="Cargando productos" />
-            ) : visibleProducts.length === 0 ? (
-              <EmptyState title="No hay productos" detail={productQuery ? 'No encontramos coincidencias para ese filtro.' : 'Crea el primer producto del inventario.'} />
-            ) : (
-              <div className="grid max-h-[720px] gap-3 overflow-y-auto p-4 sm:p-5">
-                {visibleProducts.map((product) => (
-                  <ProductAdminCard key={product.id} product={product} onEdit={() => { setEditing(product); setShowProductModal(true) }} />
-                ))}
-              </div>
-            )}
-          </section>
+          <ProductTable />
 
           <section aria-labelledby="admin-users-title" className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
@@ -292,6 +208,7 @@ export default function Admin() {
                   <tr>
                     <th scope="col" className="px-6 py-3">Referencia</th>
                     <th scope="col" className="px-4 py-3">Estado</th>
+                    <th scope="col" className="px-4 py-3">Pago</th>
                     <th scope="col" className="px-4 py-3">Total</th>
                     <th scope="col" className="px-4 py-3">Fecha</th>
                     <th scope="col" className="px-6 py-3 text-right">Detalle</th>
@@ -301,7 +218,8 @@ export default function Admin() {
                   {orders.map((order) => (
                     <tr key={order.id} className="hover:bg-slate-50/80">
                       <td className="px-6 py-3 font-semibold text-slate-900">{order.reference}</td>
-                      <td className="px-4 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{order.status}</span></td>
+                      <td className="px-4 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{orderStatusLabel(order)}</span></td>
+                      <td className="px-4 py-3 text-slate-600">{paymentMethodLabel(order)}</td>
                       <td className="px-4 py-3">{formatCurrency(order.total)}</td>
                       <td className="px-4 py-3 text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-3 text-right">
@@ -316,28 +234,8 @@ export default function Admin() {
         </section>
       </main>
 
-      {showProductModal && <ProductModal product={editing} onClose={closeProductModal} onSaved={productSaved} />}
       {deleteTarget && <DeleteUserDialog user={deleteTarget} busy={deleting} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={removeUser} />}
     </div>
-  )
-}
-
-function ProductAdminCard({ product, onEdit }) {
-  const [failed, setFailed] = useState(false)
-  const source = resolveImageUrl(product.image)
-  const sizes = parseSizes(product.sizes ?? product.size)
-  useEffect(() => setFailed(false), [source])
-  return (
-    <article className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3">
-      {source && !failed ? <img src={source} onError={() => setFailed(true)} alt={`Miniatura de ${product.name}`} className="h-16 w-14 shrink-0 rounded-xl object-cover" /> : <div aria-hidden="true" className="grid h-16 w-14 shrink-0 place-items-center rounded-xl bg-slate-100 text-xs font-bold text-slate-400">WF</div>}
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate font-semibold text-slate-900">{product.name}</h3>
-        <p className="mt-0.5 truncate text-xs text-slate-500">{product.brand || 'Sin marca'} · {product.sku}</p>
-        <p className="mt-1 text-xs text-slate-500">{sizes.join(', ') || 'Sin talla'} · Stock {product.stock}</p>
-        <p className="mt-1 text-sm font-bold text-slate-950">{formatMoney(product.price)}</p>
-      </div>
-      <button type="button" onClick={onEdit} aria-label={`Editar ${product.name}`} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B0E2D]">Editar</button>
-    </article>
   )
 }
 

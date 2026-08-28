@@ -48,7 +48,7 @@ export default function Product() {
     return (
       <main className="mx-auto max-w-4xl px-4 py-20 text-center">
         <div className="rounded-[2rem] border border-dashed border-[#6d1738]/25 bg-white px-6 py-16">
-          <p className="eyebrow">Referencia no disponible</p>
+          <p className="eyebrow">Producto no disponible</p>
           <h1 className="mt-4 font-serif text-4xl font-semibold text-[#28161e]">Esta prenda ya no está en el perchero</h1>
           <p className="mx-auto mt-4 max-w-xl leading-7 text-[#705d65]">Puede haberse agotado o el enlace ya no estar vigente. La colección actual te espera a un paso.</p>
           <Link to="/catalog" className="button-primary mt-7">Volver al catálogo</Link>
@@ -95,7 +95,6 @@ export default function Product() {
               <div>
                 <p className="eyebrow">{displayProduct.brand} · {displayProduct.category}</p>
                 <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight text-[#28161e] sm:text-5xl">{displayProduct.name}</h1>
-                <p className="mt-3 text-sm text-[#806e75]">Referencia {displayProduct.sku || displayProduct.id}</p>
               </div>
               <Link
                 to="/cart"

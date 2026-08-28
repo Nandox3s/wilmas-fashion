@@ -223,7 +223,7 @@ function ProductIdentity({ product }) {
       {source && !failed ? <img src={source} onError={() => setFailed(true)} alt={`Miniatura de ${product.name}`} className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" /> : <div aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-slate-100 text-xs font-bold text-slate-400">WF</div>}
       <div className="min-w-0">
         <div className="truncate font-semibold text-slate-900">{product.name}</div>
-        <div className="mt-0.5 truncate text-xs text-slate-500">{product.brand || 'Sin marca'} · {product.sku}</div>
+        <div className="mt-0.5 truncate text-xs text-slate-500">{product.brand || 'Sin marca'}</div>
         <div className="mt-0.5 truncate text-xs text-slate-400">{product.color || 'Sin color'}</div>
       </div>
     </div>
